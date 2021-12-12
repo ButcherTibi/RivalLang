@@ -1,0 +1,3 @@
+﻿  Parser.cpp
+G:\My work\Compiler\Compiler\Parser.cpp(312,63): warning C4100: 'token_index': unreferenced formal parameter
+  Compiler.vcxproj -> G:\My work\Compiler\x64\Debug\Compiler.exe

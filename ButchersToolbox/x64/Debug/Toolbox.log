@@ -1,0 +1,10 @@
+﻿D:\Programs\vs 19\Msbuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(513,5): warning MSB8028: The intermediate directory (x64\Debug\) contains files shared from another project (Toolbox.vcxproj).  This can lead to incorrect clean and rebuild behavior.
+  pch.cpp
+  Filesys.cpp
+  utf8string.cpp
+G:\My work\Compiler\ButchersToolbox\Source Code\Toolbox\utf8string.cpp(424,36): warning C4267: '=': conversion from 'size_t' to 'int32_t', possible loss of data
+G:\My work\Compiler\ButchersToolbox\Source Code\Toolbox\utf8string.cpp(437,36): warning C4267: '=': conversion from 'size_t' to 'int32_t', possible loss of data
+G:\My work\Compiler\ButchersToolbox\Source Code\Toolbox\utf8string.cpp(577,93): warning C4267: 'initializing': conversion from 'size_t' to 'uint32_t', possible loss of data
+  WindowsSpecific.cpp
+  Generating Code...
+  Toolbox.vcxproj -> G:\My work\Compiler\x64\Debug\ButchersToolbox.lib

@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Precompiled Headers">
+      <UniqueIdentifier>{6d79ef54-ef11-4c85-99f9-8f4ad277ee11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Filesystem">
+      <UniqueIdentifier>{90532d5f-794d-4ac6-899d-521ce1d388f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Console">
+      <UniqueIdentifier>{7b3bc3cd-43d8-4e85-8209-f43a6f129ba2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows Specific">
+      <UniqueIdentifier>{db4d4445-d29f-4947-b173-06b9670d02b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DebugUtils">
+      <UniqueIdentifier>{c4b9091d-8796-4963-9438-bf8fe2126155}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Unicode Strings">
+      <UniqueIdentifier>{5ba3f2d3-b71e-48de-8695-64020b33ed09}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.hpp">
+      <Filter>Precompiled Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Library.hpp" />
+    <ClInclude Include="Source Code\Toolbox\Console.hpp">
+      <Filter>Console</Filter>
+    </ClInclude>
+    <ClInclude Include="Source Code\Toolbox\DebugUtils.hpp">
+      <Filter>DebugUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="Source Code\Toolbox\Filesys.hpp">
+      <Filter>Filesystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Source Code\Toolbox\utf_string.hpp">
+      <Filter>Unicode Strings</Filter>
+    </ClInclude>
+    <ClInclude Include="Source Code\Toolbox\WindowsSpecific.hpp">
+      <Filter>Windows Specific</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>Precompiled Headers</Filter>
+    </ClCompile>
+    <ClCompile Include="Source Code\Toolbox\Filesys.cpp">
+      <Filter>Filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="Source Code\Toolbox\utf8string.cpp">
+      <Filter>Unicode Strings</Filter>
+    </ClCompile>
+    <ClCompile Include="Source Code\Toolbox\WindowsSpecific.cpp">
+      <Filter>Windows Specific</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

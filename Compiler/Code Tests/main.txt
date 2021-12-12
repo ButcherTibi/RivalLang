@@ -1,0 +1,10 @@
+
+main(param_name param_type) return_type
+{
+	variable type;
+	variable type = 3;
+	variable = 3;
+	variable = "";
+
+	function_name();
+}

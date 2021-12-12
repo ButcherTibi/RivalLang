@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="pch.cpp">
+      <Filter>Precompiled Headers</Filter>
+    </ClCompile>
+    <ClCompile Include="Lexer.cpp">
+      <Filter>Lexer</Filter>
+    </ClCompile>
+    <ClCompile Include="Parser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Precompiled Headers">
+      <UniqueIdentifier>{322804c3-edda-4b49-987e-cc17ed6ad42a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External">
+      <UniqueIdentifier>{58feb3ed-4346-4525-b1c5-57e7bd39e10a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lexer">
+      <UniqueIdentifier>{1f00f5a9-55a8-4be4-a416-4e0f36530c38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Parser">
+      <UniqueIdentifier>{e29b825e-f4ea-4206-bda8-929e09b65222}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.hpp">
+      <Filter>Precompiled Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Lexer.hpp">
+      <Filter>Lexer</Filter>
+    </ClInclude>
+    <ClInclude Include="Parser.hpp">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGeneration.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Code Tests\main.txt" />
+  </ItemGroup>
+</Project>

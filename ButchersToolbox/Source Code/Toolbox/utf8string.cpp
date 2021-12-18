@@ -2,6 +2,9 @@
 // Header
 #include "utf_string.hpp"
 
+// Standard
+#include <array>
+
 // Mine
 #include "DebugUtils.hpp"
 

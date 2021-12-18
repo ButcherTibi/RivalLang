@@ -95,6 +95,7 @@ public:
 	utf8string(std::string& string);
 	utf8string(std::vector<uint8_t>& bytes);
 
+
 	/* Queries */
 
 	// return the number of code points (excludes \\0)

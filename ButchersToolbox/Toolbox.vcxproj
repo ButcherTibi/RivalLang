@@ -98,6 +98,7 @@
     <ClInclude Include="Source Code\Toolbox\WindowsSpecific.hpp" />
     <ClInclude Include="pch.hpp" />
     <ClInclude Include="Library.hpp" />
+    <ClInclude Include="StringFormating.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source Code\Toolbox\Filesys.cpp" />

@@ -1,10 +1,19 @@
 
-main(param_name param_type) return_type
-{
-	variable type;
-	variable type = 3;
-	variable = 3;
-	variable = "";
+var_name type = + a;
+var_name type = a + b;
+var_name type = a + (b + c);
 
-	function_name();
-}
+variable_name typename;
+variable_name var = "default value";
+
+variable_name container<uint>;
+
+variable_name = "assignment";
+
+instance_name.property;
+instance_name.method();
+
+namespace_1.namespace_1.instance_name.property;
+namespace_1.namespace_1.instance_name.method();
+
+function();

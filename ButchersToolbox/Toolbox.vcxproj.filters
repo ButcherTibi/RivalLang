@@ -19,6 +19,9 @@
     <Filter Include="Unicode Strings">
       <UniqueIdentifier>{5ba3f2d3-b71e-48de-8695-64020b33ed09}</UniqueIdentifier>
     </Filter>
+    <Filter Include="StringFormat">
+      <UniqueIdentifier>{b5dddb77-dad0-4ca1-9636-6d53a80308f8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.hpp">
@@ -39,6 +42,9 @@
     </ClInclude>
     <ClInclude Include="Source Code\Toolbox\WindowsSpecific.hpp">
       <Filter>Windows Specific</Filter>
+    </ClInclude>
+    <ClInclude Include="StringFormating.hpp">
+      <Filter>StringFormat</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

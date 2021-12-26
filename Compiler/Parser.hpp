@@ -17,6 +17,8 @@ enum class AST_NodeTypes {
 	OPERATOR_MUL,
 	OPERATOR_DIV,
 	OPERATOR_MOD,
+	LITERAL,
+	VARIABLE,
 
 	EXPRESSION,
 	STATEMENTS,
@@ -29,7 +31,7 @@ enum class AST_NodeTypes {
 };
 
 struct AST_BaseNode {
-	uint32_t parent;
+	uint32_t parent = 0xFFFF'FFFF;
 	std::vector<uint32_t> children;
 
 	AST_NodeTypes ast_node_type;
@@ -38,10 +40,29 @@ struct AST_BaseNode {
 };
 
 
-struct AST_Type : AST_BaseNode {
-	uint32_t name_token;
+struct AST_ExpressionSign : AST_BaseNode {
+	// the sign is determined by node type
+	//int32_t precedence;
+};
+
+
+struct AST_Literal : AST_BaseNode {
+	uint32_t token;
 
 	std::string toString(std::vector<Token>& tokens) override;
+};
+
+
+struct AST_Variable : AST_BaseNode {
+	std::vector<uint32_t> name_tokens;  // name of the variable
+
+	std::string toString(std::vector<Token>& tokens) override;
+};
+
+
+struct AST_FunctionCall : AST_BaseNode {
+	std::vector<uint32_t> name_tokens;
+	// expression node
 };
 
 
@@ -67,18 +88,23 @@ struct AST_FunctionDefinition : AST_BaseNode {
 };
 
 
-struct AST_FunctionCall : AST_BaseNode {
-	std::vector<uint32_t> name;
+struct AST_Type : AST_BaseNode {
+	uint32_t name_token;
+
+	std::string toString(std::vector<Token>& tokens) override;
 };
 
 
 typedef std::variant<
-	AST_Type,
 	AST_BaseNode,
-	AST_VariableDeclaration,
+	AST_ExpressionSign,
+	AST_Literal,
+	AST_Variable,
 	AST_FunctionCall,
+	AST_VariableDeclaration,
 
-	AST_FunctionDefinition
+	AST_FunctionDefinition,
+	AST_Type
 > AST_Node;
 
 
@@ -126,6 +152,13 @@ public:
 
 public:
 
+	/* Utility functions */
+
+	Token& getToken(uint32_t token_index)
+	{
+		return (*tokens)[token_index];
+	}
+
 	template<typename T>
 	T* addNode(uint32_t& r_new_node_index)
 	{
@@ -143,6 +176,9 @@ public:
 	AST_BaseNode* getBaseNode(uint32_t node_idx);
 
 	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
+
+
+	/* Check Token */
 
 
 	/* Seek Functions */
@@ -190,16 +226,25 @@ public:
 	void parseType(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
-	// void parseVariableDeclaration(uint32_t parent_node_index, uint32_t& token_index,
-	// 	uint32_t& r_child_node_index);
-
-	//void parseTemplateParams(uint32_t token_start, )
+	void parseExpr2(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);
 
 	void parseName(uint32_t token_start,
 		std::vector<uint32_t>& r_name, uint32_t& r_token_end);
 
+	enum class SubExpressionStatus {
+
+	};
+
+	// parses stuff like ()
+	bool parseSubExpression(uint32_t& token_index, int32_t parent_precedence,
+		uint32_t& r_child_node_index);
+
+	/*void parseExpr2(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);*/
+
 	bool parseExpression(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_node_index);
+		uint32_t& r_child_node_index);
 
 	// parse stuff inside function body, stuff that can be executed
 	bool parseStatements(uint32_t parent_node_index, uint32_t& token_index,
@@ -225,10 +270,15 @@ public:
 
 
 	/* Error */
-	void error(std::string error_mesage, uint32_t token_index);
+
+	void pushError(std::string error_mesage, uint32_t token_index);
+
+	// "unexpected token {token.value} "
+	void errorUnexpectedToken(std::string error_mesage, uint32_t token_index);
 
 
 	/* Debug */
 	void _print(uint32_t node_idx, uint32_t depth);
-	void print();
+	void printTree();
+	void printNodes(uint32_t start_index = 0, uint32_t end_index = 0xFFFF'FFFF);
 };

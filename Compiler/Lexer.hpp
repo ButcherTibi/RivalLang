@@ -27,28 +27,13 @@ struct Token {
 	std::string value;
 
 public:
-	void end(uint32_t i_to_next_token)
-	{
-		length = i_to_next_token - start;
-	}
+	void end(uint32_t i_to_next_token);
+	void end(std::vector<uint8_t>& bytes, uint32_t i_to_next_token);
 
-	void end(std::vector<uint8_t>& bytes, uint32_t i_to_next_token)
-	{
-		length = i_to_next_token - start;
-
-		value.resize(length);
-		std::memcpy(value.data(), bytes.data() + start, length);
-	}
-
-	bool isSpacing()
-	{
-		return type == TokenTypes::SPACING;
-	}
-
-	bool isSymbol(std::string other)
-	{
-		return type == TokenTypes::SYMBOL && value == other;
-	}
+	bool isSpacing();
+	bool isSymbol();
+	bool isSymbol(std::string other);
+	bool isExpressionSign();
 };
 
 

@@ -3,6 +3,51 @@
 #include "Lexer.hpp"
 
 
+void Token::end(uint32_t i_to_next_token)
+{
+	length = i_to_next_token - start;
+}
+
+void Token::end(std::vector<uint8_t>& bytes, uint32_t i_to_next_token)
+{
+	length = i_to_next_token - start;
+
+	value.resize(length);
+	std::memcpy(value.data(), bytes.data() + start, length);
+}
+
+bool Token::isSpacing()
+{
+	return type == TokenTypes::SPACING;
+}
+
+bool Token::isSymbol()
+{
+	return type == TokenTypes::SYMBOL;
+}
+
+bool Token::isSymbol(std::string other)
+{
+	return type == TokenTypes::SYMBOL && value == other;
+}
+
+bool Token::isExpressionSign()
+{
+	if (type == TokenTypes::SYMBOL) {
+
+		if (value == "+" ||
+			value == "-" ||
+			value == "*" ||
+			value == "/" ||
+			value == "%")
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool isDigit(uint8_t byte)
 {
 	return '0' <= byte && byte <= '9';

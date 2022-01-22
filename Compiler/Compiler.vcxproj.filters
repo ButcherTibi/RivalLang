@@ -11,6 +11,9 @@
     <ClCompile Include="Parser.cpp">
       <Filter>Parser</Filter>
     </ClCompile>
+    <ClCompile Include="ParserUtils.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Precompiled Headers">

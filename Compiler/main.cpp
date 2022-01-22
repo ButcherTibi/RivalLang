@@ -62,7 +62,7 @@ int main(int argument_count, char* argv[])
 
 			// Parser
 			Parser parser;
-			parser.begin(file_to_lex);
+			parser.parseSourceFile(file_to_lex);
 			printf("\n");
 			parser.printTree();
 		}

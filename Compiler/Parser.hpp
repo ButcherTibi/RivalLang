@@ -2,56 +2,72 @@
 
 // Standard
 #include <variant>
+#include <typeinfo>
 
 // Mine
 #include "Lexer.hpp"
 
 
-enum class AST_NodeTypes {
-	FILE,
-
-	OPERATOR_ADD_UNARY,
-	OPERATOR_SUB_UNARY,
-	OPERATOR_ADD_BINARY,
-	OPERATOR_SUB_BINARY,
-	OPERATOR_MUL,
-	OPERATOR_DIV,
-	OPERATOR_MOD,
-	LITERAL,
-	VARIABLE,
-
-	EXPRESSION,
-	STATEMENTS,
-
-	TYPE,
-	VARIABLE_DECLARATION,
-
-	FUNCTION_DEFINITION,
-	FUNCTION_CALL
-};
-
+// Base class for all abstract syntax tree nodes, never used on its own
 struct AST_BaseNode {
 	uint32_t parent = 0xFFFF'FFFF;
 	std::vector<uint32_t> children;
 
-	AST_NodeTypes ast_node_type;
-
-	virtual std::string toString(std::vector<Token>& tokens);
+	virtual std::string toString(std::vector<Token>&) {
+		return "Node";
+	};
 };
 
 
-struct AST_ExpressionSign : AST_BaseNode {
-	// the sign is determined by node type
-	//int32_t precedence;
+// Code Spliting ////////////////////////////////////////////////////////////////////
+
+struct AST_SourceFile : AST_BaseNode {
+	std::string toString(std::vector<Token>&) override;
 };
 
 
+// Expression ///////////////////////////////////////////////////////////////////////
+
+// Expression used in assignment or function call
+struct AST_Expression : AST_BaseNode {
+	std::string toString(std::vector<Token>&) override {
+		return "Expression";
+	};
+};
+
+// Binary Operators
+struct AST_OperatorPlusBinary : AST_BaseNode {
+	std::string toString(std::vector<Token>&) override {
+		return "+";
+	};
+};
+
+struct AST_OperatorMultiplication : AST_BaseNode {
+	std::string toString(std::vector<Token>&) override {
+		return "*";
+	};
+};
+
+// Literals
 struct AST_Literal : AST_BaseNode {
 	uint32_t token;
 
 	std::string toString(std::vector<Token>& tokens) override;
 };
 
+struct AST_NumericLiteral : AST_Literal { };
+struct AST_StringLiteral : AST_Literal { };
+
+
+// Variable /////////////////////////////////////////////////////////////////////////
+
+struct AST_VariableDeclaration : AST_BaseNode {
+	uint32_t name_token;  // name of the variable
+	std::vector<uint32_t> modifiers_tokens;  // modifiers to be applied
+
+public:
+	std::string toString(std::vector<Token>& tokens) override;
+};
 
 struct AST_Variable : AST_BaseNode {
 	std::vector<uint32_t> name_tokens;  // name of the variable
@@ -59,34 +75,36 @@ struct AST_Variable : AST_BaseNode {
 	std::string toString(std::vector<Token>& tokens) override;
 };
 
-
-struct AST_FunctionCall : AST_BaseNode {
-	std::vector<uint32_t> name_tokens;
-	// expression node
-};
-
-
-struct AST_VariableDeclaration : AST_BaseNode {
+struct AST_VariableAssignment : AST_BaseNode {
 	std::vector<uint32_t> name_tokens;  // name of the variable
-	uint32_t symbol_token = 0xFFFF'FFFF;  // usually a * to denote a pointer
 
-	uint32_t type_token;
-	//std::vector<uint32_t> type_tree_tokens;  // type tree
-	std::vector<uint32_t> keyword_tokens;  // keywords to be applied
-	uint32_t expression_node = 0xFFFF'FFFF;
-
-public:
 	std::string toString(std::vector<Token>& tokens) override;
 };
 
+
+// Function /////////////////////////////////////////////////////////////////////////
 
 struct AST_FunctionDefinition : AST_BaseNode {
 	uint32_t name_token;
 	std::vector<uint32_t> param_nodes;
 	uint32_t return_node;
-	std::vector<uint32_t> keyword_tokens;
+	std::vector<uint32_t> modifiers_tokens;
 };
 
+struct AST_FunctionCall : AST_BaseNode {
+	std::vector<uint32_t> name_tokens;
+	std::vector<uint32_t> modifiers_tokens;
+	// arguments will be the child expression nodes
+
+	std::string toString(std::vector<Token>& tokens) override;
+};
+
+// Stuff that lives inside a function and can be executed
+// It's children are a mix of assignments, declarations and function calls
+struct AST_Statements : AST_BaseNode { };
+
+
+// Type ////////////////////////////////////////////////////////////////////////////
 
 struct AST_Type : AST_BaseNode {
 	uint32_t name_token;
@@ -95,44 +113,35 @@ struct AST_Type : AST_BaseNode {
 };
 
 
-typedef std::variant<
-	AST_BaseNode,
-	AST_ExpressionSign,
-	AST_Literal,
-	AST_Variable,
-	AST_FunctionCall,
-	AST_VariableDeclaration,
+//////////////////////////////////////////////////////////////////////////////////
 
+typedef std::variant<
+	// Code Spliting
+	AST_SourceFile,
+
+	// Expression
+	AST_Expression,
+
+	AST_OperatorPlusBinary,
+	AST_OperatorMultiplication,
+
+	AST_NumericLiteral,
+	AST_StringLiteral,
+
+	// Variable
+	AST_VariableDeclaration,
+	AST_Variable,
+	AST_VariableAssignment,
+
+	// Function
 	AST_FunctionDefinition,
+	AST_FunctionCall,
+	AST_Statements,
+
+	// Type
 	AST_Type
 > AST_Node;
 
-
-struct CompilerErrorException {
-	std::string msg;
-	uint32_t line, column;
-
-	CompilerErrorException(std::string new_msg, uint32_t new_line, uint32_t new_column)
-	{
-		msg = new_msg;
-		line = new_line;
-		column = new_column;
-	}
-};
-
-//
-//struct SyntaxUnit {
-//	uint32_t token;
-//
-//	std::vector<uint32_t> token_tree;
-//
-//	SyntaxUnit() = default;
-//
-//	SyntaxUnit(uint32_t new_token)
-//	{
-//		token = new_token;
-//	}
-//};
 
 struct CompilerError {
 	std::string msg;
@@ -153,11 +162,7 @@ public:
 public:
 
 	/* Utility functions */
-
-	Token& getToken(uint32_t token_index)
-	{
-		return (*tokens)[token_index];
-	}
+	Token& getToken(uint32_t token_index);
 
 	template<typename T>
 	T* addNode(uint32_t& r_new_node_index)
@@ -165,6 +170,23 @@ public:
 		r_new_node_index = nodes.size();
 
 		return &nodes.emplace_back().emplace<T>();
+	}
+
+	template<typename T>
+	T* addNode(uint32_t parent_node_index, uint32_t& r_child_node_index)
+	{
+		r_child_node_index = nodes.size();
+
+		T* new_node = &nodes.emplace_back().emplace<T>();
+
+		// link to each other
+		AST_BaseNode* parent = getBaseNode(parent_node_index);
+		parent->children.push_back(r_child_node_index);
+
+		AST_BaseNode* child = getBaseNode(r_child_node_index);
+		child->parent = parent_node_index;
+
+		return new_node;
 	}
 
 	template<typename T>
@@ -178,12 +200,9 @@ public:
 	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
 
 
-	/* Check Token */
-
-
 	/* Seek Functions */
 
-	// ski spacing and identifiers but not specified symbols to find symbol token
+	// skip spacing and identifiers but not specified symbols to find symbol token
 	bool seekToSymbolToken(uint32_t& token_index, std::string symbol_token,
 		std::vector<std::string> not_allowed_symbols, bool allow_identifier = true);
 
@@ -207,73 +226,91 @@ public:
 
 	// skip spacing and identifiers
 	bool skipPastIdentifiers(uint32_t& token_index);
+	bool skipPastCompositeName(uint32_t& token_index);
 
 	// skip only spacing to find identifier
 	bool skipToIdentifierToken(uint32_t& token_index);
 	bool skipToIdentifierToken(uint32_t token_index, uint32_t& r_token_index);
+
 	bool skipToIdentifierToken(uint32_t& token_index, std::string target_identifier);
 
 
-	/* Parse Functions
-	  @parent_node_index = parent to atach to
-	  @start_token_index = poinat at which to start the look up
-	  @end_token_index = point where the look up ended
-	    will always be the next token after the statement/declaration/expression
-	*/
+	/* Parse Functions ******************************************************************************/
+	// Parse functions advance token index just past syntax, they don't make asumptions
+	// about what follows after
 
 
-	// parse the type in stuff like variable declarations, function parameters
-	void parseType(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	/* Common */
 
-	void parseExpr2(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	// parse dot separated list of identifiers
+	// ex: namespace_name.class_name.property_name
+	void parseCompositeName(uint32_t& token_index, std::vector<uint32_t>& r_name);
 
-	void parseName(uint32_t token_start,
-		std::vector<uint32_t>& r_name, uint32_t& r_token_end);
+	// parse space separated list of modifiers
+	// ex: modifier_0 modifier_1 modifier_2
+	void parseModifiers(uint32_t& token_index, std::vector<uint32_t>& r_modifiers);
 
-	enum class SubExpressionStatus {
 
-	};
+	/* Code Spliting */
 
-	// parses stuff like ()
+	void parseSourceFile(FileToLex& file_to_lex);
+
+
+	/* Expression */
+
 	bool parseSubExpression(uint32_t& token_index, int32_t parent_precedence,
 		uint32_t& r_child_node_index);
-
-	/*void parseExpr2(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);*/
 
 	bool parseExpression(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
+
+	/* Variable */
+
+	// a variable declaration is defined as the combination of a simple indetifier for the name and
+	// a another identifier acting as the type
+	bool parseVariableDeclaration(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);
+
+	// assignment is defined as a complex name and the `=` sign
+	bool parseVariableAssignment(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);
+
+
+	/* Function */
+
 	// parse stuff inside function body, stuff that can be executed
-	bool parseStatements(uint32_t parent_node_index, uint32_t& token_index,
+	/*bool parseStatements(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);*/
+
+	bool parseFunctionImplementation(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
-	void parseFunctionImplementation(uint32_t parent_node_index, uint32_t& token_index,
+	bool parseFunctionCall(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
-	void begin(FileToLex& file_to_lex);
+	bool parseStatement(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);
+
+
+	/* Type */
+
+	// parse the type in stuff like variable declarations, function parameters
+	bool parseType(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);
 
 
 	/* Check functions */
 
-	// does not parse modifiers and is very permisive
-	// Example: ComplexType<TemplateParam_1, TemplateParam_2><TemplateParam_1, TemplateParam_2>
-	bool isType(uint32_t& token_index);
-
-	bool isVariableDeclaration(uint32_t token_index);
-
-	bool isFunctionCall(uint32_t token_index);
-
-	bool isFunctionImplementation(uint32_t token_index);
+	// checks if the identifier is not followed by '.' or other symbols
+	bool isSimpleName(uint32_t token_index);
 
 
 	/* Error */
 
-	void pushError(std::string error_mesage, uint32_t token_index);
+	void error(std::string error_mesage, uint32_t token_index);
 
-	// "unexpected token {token.value} "
+	// "unexpected token '{token.value}' "
 	void errorUnexpectedToken(std::string error_mesage, uint32_t token_index);
 
 

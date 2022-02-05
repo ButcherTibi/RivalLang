@@ -78,7 +78,7 @@ bool isSpacing(uint8_t byte)
 		byte == '\r' || byte == '\n';
 }
 
-void FileToLex::advance()
+void Lexer::advance()
 {
 	uint8_t byte = bytes[i];
 
@@ -93,7 +93,7 @@ void FileToLex::advance()
 	i++;
 }
 
-bool FileToLex::skipToSymbolNoAdvance(uint32_t& index, char symbol)
+bool Lexer::skipToSymbolNoAdvance(uint32_t& index, char symbol)
 {
 	while (index < bytes.size()) {
 
@@ -113,7 +113,7 @@ bool FileToLex::skipToSymbolNoAdvance(uint32_t& index, char symbol)
 	return false;
 }
 
-void FileToLex::lexIdentifier()
+void Lexer::lexIdentifier()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::IDENTIFIER;
@@ -133,7 +133,7 @@ void FileToLex::lexIdentifier()
 	}
 }
 
-void FileToLex::lexNumber()
+void Lexer::lexNumber()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::NUMBER;
@@ -161,7 +161,7 @@ void FileToLex::lexNumber()
 	}
 }
 
-void FileToLex::lexHexadecimal()
+void Lexer::lexHexadecimal()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::NUMBER;
@@ -200,7 +200,7 @@ void FileToLex::lexHexadecimal()
 	}
 }
 
-void FileToLex::lexBinary()
+void Lexer::lexBinary()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::NUMBER;
@@ -236,7 +236,7 @@ void FileToLex::lexBinary()
 	}
 }
 
-void FileToLex::lexSpacing()
+void Lexer::lexSpacing()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::SPACING;
@@ -255,7 +255,7 @@ void FileToLex::lexSpacing()
 	}
 }
 
-void FileToLex::lexString()
+void Lexer::lexString()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::STRING;
@@ -315,7 +315,7 @@ void FileToLex::lexString()
 	}
 }
 
-void FileToLex::lexVerbatimString()
+void Lexer::lexVerbatimString()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::STRING;
@@ -345,7 +345,7 @@ void FileToLex::lexVerbatimString()
 	}
 }
 
-void FileToLex::lexSymbol()
+void Lexer::lexSymbol()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::SYMBOL;
@@ -358,8 +358,9 @@ void FileToLex::lexSymbol()
 	advance();
 }
 
-void FileToLex::begin(std::vector<uint8_t>& new_bytes)
+void Lexer::lexFile(std::vector<uint8_t>&& new_bytes, std::string& new_file_path)
 {
+	file_path = new_file_path;
 	bytes = new_bytes;
 	i = 0;
 
@@ -422,7 +423,7 @@ void FileToLex::begin(std::vector<uint8_t>& new_bytes)
 	}
 }
 
-void FileToLex::print()
+void Lexer::print(bool ignore_spacing)
 {
 	std::string token_type;
 
@@ -449,12 +450,14 @@ void FileToLex::print()
 		}
 
 		if (token.type != TokenTypes::SPACING) {
-			printf("line %d column %d : %s = %s \n",
+			printf("%s (%d, %d): %s = %s \n",
+				file_path.c_str(),
 				token.line, token.column,
 				token_type.c_str(), token.value.c_str());
 		}
-		else {
-			printf("line %d column %d : %s \n",
+		else if (ignore_spacing == false) {
+			printf("%s (%d, %d): %s \n",
+				file_path.c_str(),
 				token.line, token.column,
 				token_type.c_str());
 		}

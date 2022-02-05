@@ -5,7 +5,7 @@
 
 Token& Parser::getToken(uint32_t token_index)
 {
-	return (*tokens)[token_index];
+	return tokens[token_index];
 }
 
 std::string AST_SourceFile::toString(std::vector<Token>&)
@@ -44,7 +44,7 @@ std::string AST_Variable::toString(std::vector<Token>& tokens)
 
 std::string AST_VariableAssignment::toString(std::vector<Token>& tokens)
 {
-	std::string str = std::string("Variable name = ");
+	std::string str = std::string("Variable Assignment name = ");
 
 	for (uint32_t name_token : name_tokens) {
 

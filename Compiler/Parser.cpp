@@ -10,9 +10,9 @@ bool Parser::seekToSymbolToken(uint32_t& i, std::string symbol_token,
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::SYMBOL) {
 
@@ -42,9 +42,9 @@ bool Parser::seekToSymbolToken(uint32_t& i, std::string symbol_token)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::SYMBOL) {
 
@@ -70,9 +70,9 @@ bool Parser::skipToExpressionSymbolToken(uint32_t i, uint32_t& r_token_index)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.isExpressionSign()) {
 
@@ -98,9 +98,9 @@ bool Parser::skipToNumberToken(uint32_t i, uint32_t& r_token_index)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::NUMBER) {
 			r_token_index = i;
@@ -125,9 +125,9 @@ bool Parser::skipToStringToken(uint32_t i, uint32_t& r_token_index)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::STRING) {
 			r_token_index = i;
@@ -154,9 +154,9 @@ bool Parser::skipToClosingSymbolToken(uint32_t& i,
 	uint32_t start = i;
 	uint32_t balance = 0;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::SYMBOL) {
 
@@ -183,9 +183,9 @@ bool Parser::skipToSymbolToken(uint32_t& i, std::string target_symbol)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::SYMBOL) {
 			if (token.value == target_symbol) {
@@ -216,9 +216,9 @@ bool Parser::skipPastIdentifiers(uint32_t& i)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::SPACING || token.type == TokenTypes::IDENTIFIER) {
 			i++;
@@ -236,7 +236,7 @@ bool Parser::skipPastCompositeName(uint32_t& i)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
 		if (skipToIdentifierToken(i)) {
 
@@ -258,9 +258,9 @@ bool Parser::skipToIdentifierToken(uint32_t& i)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::IDENTIFIER) {
 			return true;
@@ -286,9 +286,9 @@ bool Parser::skipToIdentifierToken(uint32_t& i, std::string target_identifier)
 {
 	uint32_t start = i;
 
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
-		Token& token = (*tokens)[i];
+		Token& token = tokens[i];
 
 		if (token.type == TokenTypes::IDENTIFIER) {
 			if (token.value == target_identifier) {
@@ -373,7 +373,7 @@ bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
 //
 //	while (true) {
 //
-//		Token& token = (*tokens)[i];
+//		Token& token = tokens[i];
 //
 //		switch (stage) {
 //		case Mode::NAME: {
@@ -428,7 +428,7 @@ bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
 
 void Parser::parseCompositeName(uint32_t& i, std::vector<uint32_t>& r_name)
 {
-	while (i < tokens->size()) {
+	while (i < tokens.size()) {
 
 		if (skipToIdentifierToken(i)) {
 			r_name.push_back(i);
@@ -485,7 +485,7 @@ bool Parser::parseSubExpression(uint32_t& i, int32_t parent_precedence,
 					i++;
 					if (parseSubExpression(i, 0, result)) {
 
-						atom_token = &(*tokens)[i];
+						atom_token = &tokens[i];
 
 						if (atom_token->isSymbol(")") == false) {
 
@@ -525,7 +525,7 @@ bool Parser::parseSubExpression(uint32_t& i, int32_t parent_precedence,
 
 			i = r_token_index;
 
-			Token& sign_token = (*tokens)[i];
+			Token& sign_token = tokens[i];
 
 			int32_t precedence;
 
@@ -537,6 +537,7 @@ bool Parser::parseSubExpression(uint32_t& i, int32_t parent_precedence,
 			}
 			else {
 				__debugbreak();
+				return false;
 			}
 
 			if (precedence >= parent_precedence) {
@@ -561,6 +562,7 @@ bool Parser::parseSubExpression(uint32_t& i, int32_t parent_precedence,
 						}
 						else {
 							__debugbreak();
+							return false;
 						}
 
 						/*
@@ -804,17 +806,20 @@ bool Parser::parseStatement(uint32_t parent, uint32_t& i,
 			// variable declaration:
 			// simple_name type_identifier
 			if (skipToIdentifierToken(i, new_i)) {
-				return parseVariableDeclaration(parent, name_token, r_statement);
+				i = name_token;
+				return parseVariableDeclaration(parent, i, r_statement);
 			}
 			// variable assignment
 			// name =
 			else if (skipToSymbolToken(i, "=", new_i)) {
-				return parseVariableAssignment(parent, name_token, r_statement);
+				i = name_token;
+				return parseVariableAssignment(parent, i, r_statement);
 			}
 			// function call
 			// name(
 			else if (skipToSymbolToken(i, "(", new_i)) {
-				return parseFunctionCall(parent, name_token, r_statement);
+				i = name_token;
+				return parseFunctionCall(parent, i, r_statement);
 			}
 			else {
 				errorUnexpectedToken("after identifier in statement", new_i);
@@ -846,20 +851,31 @@ bool Parser::parseStatement(uint32_t parent, uint32_t& i,
 	}
 }
 
-//bool Parser::parseStatements(uint32_t parent_node_index, uint32_t& i,
-//	uint32_t& r_statements)
-//{
-//	{
-//		addNode<AST_Statements>(r_statements);
-//		linkParentAndChild(parent_node_index, r_statements);
-//	}
-//
-//	// parse one statement at a time
-//	while (true) {
-//
-//		return true;
-//	}
-//}
+bool Parser::parseStatements(uint32_t parent_node_index, uint32_t& i,
+	uint32_t& r_statements)
+{
+	addNode<AST_Statements>(parent_node_index, r_statements);
+
+	uint32_t new_i;
+
+	// parse one statement at a time
+	while (true) {
+
+		uint32_t statement;
+		if (parseStatement(r_statements, i, statement)) {
+
+			if (skipToSymbolToken(i, ";", new_i)) {
+				i = new_i + 1;
+			}
+			else if (skipToSymbolToken(i, "}", new_i)) {
+				return true;
+			}
+		}
+		else {
+			return false;
+		}
+	}
+}
 
 bool Parser::parseFunctionImplementation(uint32_t parent_node_index, uint32_t& i,
 	uint32_t& r_node_index)
@@ -960,9 +976,9 @@ bool Parser::parseFunctionImplementation(uint32_t parent_node_index, uint32_t& i
 //	};
 //	auto stage = Stages::NAME;
 //
-//	while (i < (*tokens).size()) {
+//	while (i < tokens.size()) {
 //
-//		Token& token = (*tokens)[i];
+//		Token& token = tokens[i];
 //
 //		switch (stage) {
 //		case Stages::NAME: {
@@ -1041,9 +1057,10 @@ bool Parser::isSimpleName(uint32_t token_index)
 	return false;
 }
 
-void Parser::parseSourceFile(FileToLex& file_to_lex)
+void Parser::parseFile(Lexer&& file_to_lex)
 {
-	this->tokens = &file_to_lex.tokens;
+	this->file_path = file_to_lex.file_path;
+	this->tokens = std::move(file_to_lex.tokens);
 	
 	uint32_t root_node_index;
 	addNode<AST_SourceFile>(root_node_index);
@@ -1051,10 +1068,7 @@ void Parser::parseSourceFile(FileToLex& file_to_lex)
 	uint32_t i = 0;
 	uint32_t child_node_index;
 
-	parseVariableDeclaration(root_node_index, i, child_node_index);
-	// parseStatement(root_node_index, i, child_node_index);
-
-	if (errors.size()) {
+	if (parseStatements(root_node_index, i, child_node_index) == false) {
 
 		printf("\nErrors: \n");
 
@@ -1066,23 +1080,20 @@ void Parser::parseSourceFile(FileToLex& file_to_lex)
 
 void Parser::error(std::string msg, uint32_t token_index)
 {
-	Token& token = (*tokens)[token_index];
+	Token& token = tokens[token_index];
 
 	CompilerError& new_err = errors.emplace_back();
 	new_err.msg = msg;
+
 	new_err.line = token.line;
 	new_err.column = token.column;
+	new_err.file_path = file_path;
 }
 
 void Parser::errorUnexpectedToken(std::string msg, uint32_t token_index)
 {
-	Token& token = (*tokens)[token_index];
-
-	CompilerError& new_err = errors.emplace_back();
-	new_err.msg = "unexpected token '" + token.value + "' " + msg;
-
-	new_err.line = token.line;
-	new_err.column = token.column;
+	std::string message = "unexpected token '" + tokens[token_index].value + "' " + msg;
+	error(message, token_index);
 }
 
 void Parser::_print(uint32_t node_idx, uint32_t depth)
@@ -1093,7 +1104,7 @@ void Parser::_print(uint32_t node_idx, uint32_t depth)
 
 	AST_BaseNode* node = getBaseNode(node_idx);
 
-	printf("%d %s \n", node_idx, node->toString(*tokens).c_str());
+	printf("%d %s \n", node_idx, node->toString(tokens).c_str());
 
 	for (uint32_t child_node_idx : node->children) {
 		_print(child_node_idx, depth + 1);
@@ -1116,7 +1127,7 @@ void Parser::printNodes(uint32_t start_index, uint32_t end_index)
 	for (uint32_t j = start_index; j < end_index; j++) {
 
 		AST_BaseNode* base_node = getBaseNode(j);
-		std::string name = base_node->toString(*tokens);
+		std::string name = base_node->toString(tokens);
 
 		printf("  %d %s parent = %d \n",
 			j,

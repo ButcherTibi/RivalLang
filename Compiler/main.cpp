@@ -47,22 +47,26 @@ int main(int argument_count, char* argv[])
 			// read file
 			std::string current_folder;
 			Console::getCurrentFolder(current_folder);
+			
+			std::string file_name = "main.txt";
+			current_folder.append("\\");
+			current_folder.append(file_name);
 
 			std::vector<uint8_t> bytes;
-			current_folder.append("\\main.txt");
 			filesys::readFile(current_folder, bytes);
 
 			bytes.push_back('\0');
-			printf("%s \n", bytes.data());
+			// printf("%s \n", bytes.data());
 
 			// Lexer
-			FileToLex file_to_lex;
-			file_to_lex.begin(bytes);
-			file_to_lex.print();
+			Lexer lexer;
+			lexer.lexFile(std::move(bytes), file_name);
+			// lexer.print();
 
 			// Parser
 			Parser parser;
-			parser.parseSourceFile(file_to_lex);
+			parser.parseFile(std::move(lexer));
+
 			printf("\n");
 			parser.printTree();
 		}

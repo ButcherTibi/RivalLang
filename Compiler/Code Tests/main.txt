@@ -1,4 +1,9 @@
 
+var_name u64;
+var_name = 1.0;
+
+}
+
 var_name T<T1, T2> = 1 + 1;
 
 namespace.class.variable = 1 + 1 * "assignment";
@@ -11,3 +16,30 @@ variable_name Typename mod_0 mod_1;
 var_name = 1 * 2 + 3 + ("foo" + "bar");
 
 var_name Type = 1 + 2 + 3 * 4 * 5 + 6 * 9;
+
+
+namespace io {
+
+	max_path_length u64;
+
+	class File {
+		handle u64;
+		
+		read()
+		{
+			local_var u64;
+		}
+	}
+	
+	class Folder {
+		path string;
+
+		rename()
+		{
+			new_name string;
+		}
+	}
+}
+
+Types:
+

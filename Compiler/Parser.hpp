@@ -148,12 +148,14 @@ struct CompilerError {
 
 	uint32_t line;
 	uint32_t column;
+	std::string file_path;
 };
 
 
 class Parser {
 public:
-	std::vector<Token>* tokens;
+	std::string file_path;
+	std::vector<Token> tokens;
 
 	std::vector<AST_Node> nodes;
 
@@ -253,7 +255,7 @@ public:
 
 	/* Code Spliting */
 
-	void parseSourceFile(FileToLex& file_to_lex);
+	void parseFile(Lexer&& file_to_lex);
 
 
 	/* Expression */
@@ -290,6 +292,9 @@ public:
 		uint32_t& r_child_node_index);
 
 	bool parseStatement(uint32_t parent_node_index, uint32_t& token_index,
+		uint32_t& r_child_node_index);
+
+	bool parseStatements(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
 

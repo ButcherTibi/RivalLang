@@ -45,8 +45,9 @@ bool isLetter(uint8_t byte);
 bool isSpacing(uint8_t byte);
 
 
-class FileToLex {
+class Lexer {
 public:
+	std::string file_path;
 	std::vector<uint8_t> bytes;
 	uint32_t i;
 
@@ -87,9 +88,8 @@ public:
 	// everything, must put this last
 	void lexSymbol();
 
+	void lexFile(std::vector<uint8_t>&& file_bytes, std::string& file_path);
 
-	void begin(std::vector<uint8_t>& new_bytes);
 
-
-	void print();
+	void print(bool ignore_spacing = false);
 };

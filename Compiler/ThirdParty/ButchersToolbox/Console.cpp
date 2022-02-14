@@ -1,14 +1,28 @@
-#pragma once
 
-// Standard
-#include <cstdint>
-#include <cstdio>
-#include <string>
+// Windows
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+// Header
+#include "Console.hpp"
 
 
 namespace Console {
 
-	// NOTE: styling the console also applies for the first prompt after the program end
+	void configureForUTF8()
+	{
+		// Set output mode to handle virtual terminal sequences
+		HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+
+		DWORD dwMode = 0;
+		GetConsoleMode(handle, &dwMode);
+
+		dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+		SetConsoleMode(handle, dwMode);
+
+		// Set Console Output to UTF-8
+		SetConsoleOutputCP(CP_UTF8);
+	}
 
 	void setForegroundColor(uint8_t red, uint8_t green, uint8_t blue)
 	{
@@ -34,7 +48,7 @@ namespace Console {
 	{
 		current_folder.resize(GetCurrentDirectoryA(0, nullptr));
 		GetCurrentDirectoryA((uint32_t)current_folder.size(), current_folder.data());
-		
+
 		// don't need \\0
 		current_folder.pop_back();
 	}

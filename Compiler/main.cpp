@@ -2,30 +2,17 @@
 // Standard
 #include <cstdio>
 
-// Mine
-#include "Toolbox\Console.hpp"
-#include "Toolbox\Filesys.hpp"
-#include "Toolbox\utf_string.hpp"
-#include "Lexer.hpp"
+// Toolbox
+#include "ThirdParty\ButchersToolbox\Console.hpp"
+#include "ThirdParty\ButchersToolbox\utf8_string.hpp"
+#include "ThirdParty\ButchersToolbox\Filesys.hpp"
+#include "Lexer/Lexer.hpp"
 #include "Parser.hpp"
 
 
 int main(int argument_count, char* argv[])
 {
-	// Configure Console
-	{
-		// Set output mode to handle virtual terminal sequences
-		HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		DWORD dwMode = 0;
-		GetConsoleMode(handle, &dwMode);
-
-		dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-		SetConsoleMode(handle, dwMode);
-
-		// Set Console Output to UTF-8
-		SetConsoleOutputCP(CP_UTF8);
-	}
+	Console::configureForUTF8();
 
 	if (argument_count > 1) {
 
@@ -44,7 +31,7 @@ int main(int argument_count, char* argv[])
 		// compiler
 		else if (params[1] == u8"compile") {
 
-			// read file
+			// File Path
 			std::string current_folder;
 			Console::getCurrentFolder(current_folder);
 			
@@ -52,23 +39,18 @@ int main(int argument_count, char* argv[])
 			current_folder.append("\\");
 			current_folder.append(file_name);
 
+			// Read File
 			std::vector<uint8_t> bytes;
 			filesys::readFile(current_folder, bytes);
-
 			bytes.push_back('\0');
-			// printf("%s \n", bytes.data());
 
-			// Lexer
-			Lexer lexer;
-			lexer.lexFile(std::move(bytes), file_name);
-			// lexer.print();
-
-			// Parser
-			Parser parser;
-			parser.parseFile(std::move(lexer));
+			TypeStuff type_stuff;
+			type_stuff.parser.parseFile(bytes, file_name);
 
 			printf("\n");
-			parser.printTree();
+			PrintAST_TreeSettings settings;
+			settings.show_source_ranges = false;
+			type_stuff.parser.printTree(settings);
 		}
 	}
 

@@ -5,7 +5,7 @@
     <ClCompile Include="pch.cpp">
       <Filter>Precompiled Headers</Filter>
     </ClCompile>
-    <ClCompile Include="Lexer.cpp">
+    <ClCompile Include="Lexer\Lexer.cpp">
       <Filter>Lexer</Filter>
     </ClCompile>
     <ClCompile Include="Parser.cpp">
@@ -16,6 +16,11 @@
     </ClCompile>
     <ClCompile Include="Runtime.cpp" />
     <ClCompile Include="TypeResolution.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\Console.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\Filesys.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\utf8_string.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\WindowsSpecific.cpp" />
+    <ClCompile Include="Compiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Precompiled Headers">
@@ -35,7 +40,7 @@
     <ClInclude Include="pch.hpp">
       <Filter>Precompiled Headers</Filter>
     </ClInclude>
-    <ClInclude Include="Lexer.hpp">
+    <ClInclude Include="Lexer\Lexer.hpp">
       <Filter>Lexer</Filter>
     </ClInclude>
     <ClInclude Include="Parser.hpp">
@@ -43,6 +48,12 @@
     </ClInclude>
     <ClInclude Include="Runtime.hpp" />
     <ClInclude Include="TypeResolution.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\Console.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\DebugUtils.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\Filesys.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\utf8_string.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\WindowsSpecific.hpp" />
+    <ClInclude Include="Compiler.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Code Tests\main.txt" />

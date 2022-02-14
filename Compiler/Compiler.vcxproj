@@ -93,8 +93,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\Console.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\Filesys.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\utf8_string.cpp" />
+    <ClCompile Include="ThirdParty\ButchersToolbox\WindowsSpecific.cpp" />
     <ClCompile Include="TypeResolution.cpp" />
-    <ClCompile Include="Lexer.cpp" />
+    <ClCompile Include="Lexer\Lexer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="ParserUtils.cpp" />
@@ -104,9 +109,15 @@
     <ClCompile Include="Runtime.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Compiler.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\Console.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\DebugUtils.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\Filesys.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\utf8_string.hpp" />
+    <ClInclude Include="ThirdParty\ButchersToolbox\WindowsSpecific.hpp" />
     <ClInclude Include="TypeResolution.hpp" />
     <ClInclude Include="Runtime.hpp" />
-    <ClInclude Include="Lexer.hpp" />
+    <ClInclude Include="Lexer\Lexer.hpp" />
     <ClInclude Include="Parser.hpp" />
     <ClInclude Include="pch.hpp" />
   </ItemGroup>

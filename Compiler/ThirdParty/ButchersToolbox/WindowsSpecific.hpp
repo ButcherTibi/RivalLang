@@ -1,5 +1,9 @@
 #pragma once
 
+// Windows
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 // Standard
 #include <cstdio>
 #include <string>
@@ -17,14 +21,9 @@ namespace win32 {
 	// Wrap Handle so that it frees memory automatically
 	class Handle {
 	public:
-		HANDLE handle;
+		HANDLE handle = INVALID_HANDLE_VALUE;;
 
 	public:
-		Handle()
-		{
-			this->handle = INVALID_HANDLE_VALUE;
-		}
-
 		Handle(HANDLE ms_handle)
 		{
 			this->handle = ms_handle;

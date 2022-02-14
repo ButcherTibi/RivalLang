@@ -3,6 +3,42 @@
 #include "Lexer.hpp"
 
 
+std::string toStringTokenTypes(TokenTypes token_type)
+{
+	switch (token_type) {
+	case TokenTypes::IDENTIFIER:
+		return "Identifier";
+
+		// Integer
+	case TokenTypes::i32:
+		return "i32";
+	case TokenTypes::i64:
+		return "i64";
+	case TokenTypes::u32:
+		return "u32";
+	case TokenTypes::u64:
+		return "u64";
+
+		// Float point
+	case TokenTypes::f32:
+		return "f32";
+	case TokenTypes::f64:
+		return "f64";
+
+	case TokenTypes::number:
+		return "number";
+
+	case TokenTypes::STRING:
+		return "String";
+	case TokenTypes::SPACING:
+		return "Spacing";
+	case TokenTypes::SYMBOL:
+		return "Symbol";
+	}
+
+	throw;
+}
+
 void Token::end(uint32_t i_to_next_token)
 {
 	length = i_to_next_token - start;
@@ -16,9 +52,29 @@ void Token::end(std::vector<uint8_t>& bytes, uint32_t i_to_next_token)
 	std::memcpy(value.data(), bytes.data() + start, length);
 }
 
+void Token::endSuffixedLiteral(std::vector<uint8_t>& bytes, uint32_t end_i, uint32_t suffix_length)
+{
+	length = end_i - start;
+
+	uint32_t value_length = length - suffix_length;
+	value.resize(value_length);
+	std::memcpy(value.data(), bytes.data() + start, value_length);
+}
+
 bool Token::isSpacing()
 {
 	return type == TokenTypes::SPACING;
+}
+
+bool Token::isNumberLike()
+{
+	return
+		type == TokenTypes::i32 ||
+		type == TokenTypes::i64 ||
+		type == TokenTypes::u32 ||
+		type == TokenTypes::u64 ||
+		type == TokenTypes::f32 ||
+		type == TokenTypes::f64;
 }
 
 bool Token::isSymbol()
@@ -136,7 +192,7 @@ void Lexer::lexIdentifier()
 void Lexer::lexNumber()
 {
 	Token& new_token = tokens.emplace_back();
-	new_token.type = TokenTypes::NUMBER;
+	new_token.type = TokenTypes::i32;
 	new_token.start = i;
 	new_token.line = line;
 	new_token.column = column;
@@ -145,13 +201,49 @@ void Lexer::lexNumber()
 
 		uint8_t byte = bytes[i];
 
-		if (isDigit(byte) || byte == ' ' || byte == '.') {		
+		if (isDigit(byte) || byte == ' ') {		
 			advance();
 		}
-		// float, double, decimal
-		else if (byte == 'f' || byte == 'F' || byte == 'd') {
+		// 32 bit float point
+		else if (byte == '.') {
+			new_token.type = TokenTypes::f32;
 			advance();
-			new_token.end(bytes, i);
+		}
+
+		// 32 bit unsigned integer
+		else if (byte == 'u') {
+			new_token.type = TokenTypes::u32;
+			advance();
+			new_token.endSuffixedLiteral(bytes, i, 1);
+			return;
+		}
+		// 64 bit unsigned integer
+		else if (byte == 'U') {
+			new_token.type = TokenTypes::u64;
+			advance();
+			new_token.endSuffixedLiteral(bytes, i, 1);
+			return;
+		}
+		// 64 bit signed integer
+		else if (byte == 'I') {
+			new_token.type = TokenTypes::i64;
+			advance();
+			new_token.endSuffixedLiteral(bytes, i, 1);
+			return;
+		}
+
+		// 32 bit float
+		else if (byte == 'f') {
+			new_token.type = TokenTypes::f32;
+			advance();
+			new_token.endSuffixedLiteral(bytes, i, 1);
+			return;
+		}
+		// 64 bit float
+		else if (byte == 'F') {
+			new_token.type = TokenTypes::f64;
+			advance();
+			new_token.endSuffixedLiteral(bytes, i, 1);
 			return;
 		}
 		else {
@@ -164,7 +256,7 @@ void Lexer::lexNumber()
 void Lexer::lexHexadecimal()
 {
 	Token& new_token = tokens.emplace_back();
-	new_token.type = TokenTypes::NUMBER;
+	new_token.type = TokenTypes::number;
 	new_token.start = i;
 	new_token.line = line;
 	new_token.column = column;
@@ -203,7 +295,7 @@ void Lexer::lexHexadecimal()
 void Lexer::lexBinary()
 {
 	Token& new_token = tokens.emplace_back();
-	new_token.type = TokenTypes::NUMBER;
+	new_token.type = TokenTypes::number;
 	new_token.start = i;
 	new_token.line = line;
 	new_token.column = column;
@@ -358,7 +450,7 @@ void Lexer::lexSymbol()
 	advance();
 }
 
-void Lexer::lexFile(std::vector<uint8_t>&& new_bytes, std::string& new_file_path)
+void Lexer::lexFile(std::vector<uint8_t>& new_bytes, std::string& new_file_path)
 {
 	file_path = new_file_path;
 	bytes = new_bytes;
@@ -429,37 +521,18 @@ void Lexer::print(bool ignore_spacing)
 
 	for (Token& token : tokens) {
 
-		switch (token.type) {
-		case TokenTypes::IDENTIFIER:
-			token_type = "Identifier";
-			break;
-		case TokenTypes::NUMBER: {
-			token_type = "Number";
-			break;
-		}
-		case TokenTypes::STRING: {
-			token_type = "String";
-			break;
-		}
-		case TokenTypes::SPACING:
-			token_type = "Spacing";
-			break;
-		case TokenTypes::SYMBOL:
-			token_type = "Symbol";
-			break;
-		}
-
 		if (token.type != TokenTypes::SPACING) {
 			printf("%s (%d, %d): %s = %s \n",
 				file_path.c_str(),
 				token.line, token.column,
-				token_type.c_str(), token.value.c_str());
+				toStringTokenTypes(token.type).c_str(),
+				token.value.c_str());
 		}
 		else if (ignore_spacing == false) {
 			printf("%s (%d, %d): %s \n",
 				file_path.c_str(),
 				token.line, token.column,
-				token_type.c_str());
+				toStringTokenTypes(token.type).c_str());
 		}
 	}
 }

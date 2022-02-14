@@ -2,88 +2,88 @@
 // Header
 #include "Parser.hpp"
 
+using namespace std::string_literals;
+
+
+void SourceCodePosition::operator=(const Token& token)
+{
+	this->line = token.line;
+	this->column = token.column;
+}
 
 Token& Parser::getToken(uint32_t token_index)
 {
-	return tokens[token_index];
+	return lexer.tokens[token_index];
 }
 
-std::string AST_SourceFile::toString(std::vector<Token>&)
+std::string AST_SourceFile::toString()
 {
 	return "Source File";
 };
 
-std::string AST_Type::toString(std::vector<Token>& tokens)
+std::string AST_Type::toString()
 {
-	std::string str = std::string("Type ") + std::string(tokens[name_token].value);
+	std::string str = std::string("Type ") + name.value;
 	return str;
 }
 
-std::string AST_Literal::toString(std::vector<Token>& tokens)
+std::string AST_Literal::toString()
 {
-	std::string str = std::string("Literal ") + std::string(tokens[token].value);
-	return str;
+	return "Literal "s + toStringTokenTypes(token.type) + " = "s + token.value;
 }
 
-std::string AST_Variable::toString(std::vector<Token>& tokens)
+std::string AST_Variable::toString()
 {
 	std::string str = std::string("Variable name = ");
 
-	for (uint32_t name_token : name_tokens) {
+	for (Token& name : name_tokens) {
 
-		if (name_token != name_tokens.back()) {
-			str.append(tokens[name_token].value + std::string("."));
+		if (&name != &name_tokens.back()) {
+			str.append(name.value + std::string("."));
 		}
 		else {
-			str.append(tokens[name_token].value);
+			str.append(name.value);
 		}
 	}
 
 	return str;
 }
 
-std::string AST_VariableAssignment::toString(std::vector<Token>& tokens)
+std::string AST_VariableAssignment::toString()
 {
 	std::string str = std::string("Variable Assignment name = ");
 
-	for (uint32_t name_token : name_tokens) {
+	for (Token& name : name_tokens) {
 
-		if (name_token != name_tokens.back()) {
-			str.append(tokens[name_token].value + std::string("."));
+		if (&name != &name_tokens.back()) {
+			str.append(name.value + std::string("."));
 		}
 		else {
-			str.append(tokens[name_token].value);
+			str.append(name.value);
 		}
 	}
 
 	return str;
 }
 
-std::string AST_VariableDeclaration::toString(std::vector<Token>& tokens)
+std::string AST_VariableDeclaration::toString()
 {
-	std::string str = std::string("Variable Declaration name = ") + tokens[name_token].value;
+	std::string str = std::string("Variable Declaration name = ") + name_token.value;
 
-	if (modifiers_tokens.size()) {
-		str.append(" modifiers =");
-
-		for (uint32_t modifier : modifiers_tokens) {
-			str.append(std::string(" ") + tokens[modifier].value);
-		}
-	}
 	return str;
 }
 
-std::string AST_FunctionCall::toString(std::vector<Token>& tokens)
+std::string AST_FunctionCall::toString()
 {
 	std::string str = std::string("Function Call name = ");
 
-	for (uint32_t name_token : name_tokens) {
+	for (Token& name : name_tokens) {
 
-		if (name_token != name_tokens.back()) {
-			str.append(tokens[name_token].value + std::string("."));
+		if (&name != &name_tokens.back()) {
+			str.append(name.value + std::string("."));
 		}
 		else {
-			str.append(tokens[name_token].value);
+			str.append(name.value);
 		}
 	}
 
@@ -102,17 +102,11 @@ AST_BaseNode* Parser::getBaseNode(uint32_t node_idx)
 	else if (std::holds_alternative<AST_Expression>(node)) {
 		return std::get_if<AST_Expression>(&node);
 	}
-	else if (std::holds_alternative<AST_OperatorPlusBinary>(node)) {
-		return std::get_if<AST_OperatorPlusBinary>(&node);
+	else if (std::holds_alternative<AST_BinaryOperator>(node)) {
+		return std::get_if<AST_BinaryOperator>(&node);
 	}
-	else if (std::holds_alternative<AST_OperatorMultiplication>(node)) {
-		return std::get_if<AST_OperatorMultiplication>(&node);
-	}
-	else if (std::holds_alternative<AST_NumericLiteral>(node)) {
-		return std::get_if<AST_NumericLiteral>(&node);
-	}
-	else if (std::holds_alternative<AST_StringLiteral>(node)) {
-		return std::get_if<AST_StringLiteral>(&node);
+	else if (std::holds_alternative<AST_Literal>(node)) {
+		return std::get_if<AST_Literal>(&node);
 	}
 	// Variable
 	else if (std::holds_alternative<AST_VariableDeclaration>(node)) {

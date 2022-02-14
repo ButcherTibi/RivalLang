@@ -1,21 +1,19 @@
 
+var_name f32 = 1 + 2;
+
 var_name u64;
 var_name = 1.0;
 
 }
 
-var_name T<T1, T2> = 1 + 1;
-
-namespace.class.variable = 1 + 1 * "assignment";
+function_call( 1 + 1, "foo" ) ;
 namespace.class.method(1 + 1, "bar");
 
-function_call( 1 + 1, "foo" ) ;
+namespace.class.variable = 1 + 1 * "assignment";
+
 var_name Type = 1 * 2 + 3 + ("foo" + "bar");
-variable_name Typename mod_0 mod_1;
-
-var_name = 1 * 2 + 3 + ("foo" + "bar");
-
 var_name Type = 1 + 2 + 3 * 4 * 5 + 6 * 9;
+var_name T<T1, T2> = 1 + 1;
 
 
 namespace io {

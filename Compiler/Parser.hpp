@@ -3,17 +3,31 @@
 // Standard
 #include <variant>
 #include <typeinfo>
+#include <unordered_map>
 
 // Mine
-#include "Lexer.hpp"
+#include "Lexer/Lexer.hpp"
 
+
+typedef uint32_t AST_NodeIndex;
+
+
+struct SourceCodePosition {
+	uint32_t line;
+	uint32_t column;
+
+	void operator=(const Token&);
+};
 
 // Base class for all abstract syntax tree nodes, never used on its own
 struct AST_BaseNode {
 	uint32_t parent = 0xFFFF'FFFF;
 	std::vector<uint32_t> children;
 
-	virtual std::string toString(std::vector<Token>&) {
+	SourceCodePosition start_pos;
+	SourceCodePosition end_pos;
+
+	virtual std::string toString() {
 		return "Node";
 	};
 };
@@ -22,7 +36,7 @@ struct AST_BaseNode {
 // Code Spliting ////////////////////////////////////////////////////////////////////
 
 struct AST_SourceFile : AST_BaseNode {
-	std::string toString(std::vector<Token>&) override;
+	std::string toString() override;
 };
 
 
@@ -30,55 +44,56 @@ struct AST_SourceFile : AST_BaseNode {
 
 // Expression used in assignment or function call
 struct AST_Expression : AST_BaseNode {
-	std::string toString(std::vector<Token>&) override {
+	std::string toString() override {
 		return "Expression";
 	};
 };
 
-// Binary Operators
-struct AST_OperatorPlusBinary : AST_BaseNode {
-	std::string toString(std::vector<Token>&) override {
-		return "+";
+struct AST_BinaryOperator : AST_BaseNode {
+	Token token;
+
+	void assign(const Token& new_token)
+	{
+		this->token = new_token;
+		this->start_pos = new_token;
+		this->end_pos.line = new_token.line;
+		this->end_pos.column = new_token.column + 1;
+	}
+
+	std::string toString() override {
+		return token.value;
 	};
 };
 
-struct AST_OperatorMultiplication : AST_BaseNode {
-	std::string toString(std::vector<Token>&) override {
-		return "*";
-	};
-};
-
-// Literals
 struct AST_Literal : AST_BaseNode {
-	uint32_t token;
+	Token token;
 
-	std::string toString(std::vector<Token>& tokens) override;
+	std::string toString() override;
 };
-
-struct AST_NumericLiteral : AST_Literal { };
-struct AST_StringLiteral : AST_Literal { };
 
 
 // Variable /////////////////////////////////////////////////////////////////////////
 
 struct AST_VariableDeclaration : AST_BaseNode {
-	uint32_t name_token;  // name of the variable
-	std::vector<uint32_t> modifiers_tokens;  // modifiers to be applied
+	Token name_token;  // name of the variable
+
+	AST_NodeIndex type;
+	AST_NodeIndex default_expr;
 
 public:
-	std::string toString(std::vector<Token>& tokens) override;
+	std::string toString() override;
 };
 
 struct AST_Variable : AST_BaseNode {
-	std::vector<uint32_t> name_tokens;  // name of the variable
+	std::vector<Token> name_tokens;  // name of the variable
 
-	std::string toString(std::vector<Token>& tokens) override;
+	std::string toString() override;
 };
 
 struct AST_VariableAssignment : AST_BaseNode {
-	std::vector<uint32_t> name_tokens;  // name of the variable
+	std::vector<Token> name_tokens;  // name of the variable
 
-	std::string toString(std::vector<Token>& tokens) override;
+	std::string toString() override;
 };
 
 
@@ -92,24 +107,27 @@ struct AST_FunctionDefinition : AST_BaseNode {
 };
 
 struct AST_FunctionCall : AST_BaseNode {
-	std::vector<uint32_t> name_tokens;
-	std::vector<uint32_t> modifiers_tokens;
+	std::vector<Token> name_tokens;
+	std::vector<Token> modifiers_tokens;
 	// arguments will be the child expression nodes
 
-	std::string toString(std::vector<Token>& tokens) override;
+	std::string toString() override;
 };
 
 // Stuff that lives inside a function and can be executed
 // It's children are a mix of assignments, declarations and function calls
-struct AST_Statements : AST_BaseNode { };
+struct AST_Statements : AST_BaseNode {
+
+	// variable declarations
+};
 
 
 // Type ////////////////////////////////////////////////////////////////////////////
 
 struct AST_Type : AST_BaseNode {
-	uint32_t name_token;
+	Token name;
 
-	std::string toString(std::vector<Token>& tokens) override;
+	std::string toString() override;
 };
 
 
@@ -122,11 +140,8 @@ typedef std::variant<
 	// Expression
 	AST_Expression,
 
-	AST_OperatorPlusBinary,
-	AST_OperatorMultiplication,
-
-	AST_NumericLiteral,
-	AST_StringLiteral,
+	AST_BinaryOperator,
+	AST_Literal,
 
 	// Variable
 	AST_VariableDeclaration,
@@ -143,23 +158,26 @@ typedef std::variant<
 > AST_Node;
 
 
-struct CompilerError {
+struct CompilerMessage {
 	std::string msg;
 
+	// @HERE
 	uint32_t line;
 	uint32_t column;
-	std::string file_path;
+};
+
+struct PrintAST_TreeSettings {
+	bool show_node_index = false;
+	bool show_source_ranges = false;
 };
 
 
 class Parser {
 public:
-	std::string file_path;
-	std::vector<Token> tokens;
-
+	Lexer lexer;
 	std::vector<AST_Node> nodes;
 
-	std::vector<CompilerError> errors;
+	std::vector<CompilerMessage> errors;
 
 public:
 
@@ -194,7 +212,7 @@ public:
 	template<typename T>
 	T* getNode(uint32_t node_idx)
 	{
-		return std::get_if<AST_Type>(&nodes[node_idx]);
+		return &std::get<T>(nodes[node_idx]);
 	}
 
 	AST_BaseNode* getBaseNode(uint32_t node_idx);
@@ -246,21 +264,21 @@ public:
 
 	// parse dot separated list of identifiers
 	// ex: namespace_name.class_name.property_name
-	void parseCompositeName(uint32_t& token_index, std::vector<uint32_t>& r_name);
+	void parseCompositeName(uint32_t& token_index, std::vector<Token>& r_name);
 
 	// parse space separated list of modifiers
 	// ex: modifier_0 modifier_1 modifier_2
-	void parseModifiers(uint32_t& token_index, std::vector<uint32_t>& r_modifiers);
+	void parseModifiers(uint32_t& token_index, std::vector<Token>& r_modifiers);
 
 
 	/* Code Spliting */
 
-	void parseFile(Lexer&& file_to_lex);
+	void parseFile(std::vector<uint8_t>& file_bytes, std::string file_path);
 
 
 	/* Expression */
 
-	bool parseSubExpression(uint32_t& token_index, int32_t parent_precedence,
+	bool _parseExpression(uint32_t& token_index, int32_t parent_precedence,
 		uint32_t& r_child_node_index);
 
 	bool parseExpression(uint32_t parent_node_index, uint32_t& token_index,
@@ -320,7 +338,199 @@ public:
 
 
 	/* Debug */
-	void _print(uint32_t node_idx, uint32_t depth);
-	void printTree();
+	void _printTree(uint32_t node_idx, uint32_t depth, PrintAST_TreeSettings&);
+	void printTree(PrintAST_TreeSettings settings = PrintAST_TreeSettings());
 	void printNodes(uint32_t start_index = 0, uint32_t end_index = 0xFFFF'FFFF);
+};
+
+
+typedef uint32_t TypeNodeIndex;
+
+
+struct VariableDeclaration {
+	uint32_t node;
+
+	std::unordered_map<std::string, uint32_t> children;
+};
+
+struct TypeNode {
+	TypeNodeIndex parent;
+	std::unordered_map<std::string, TypeNodeIndex> children;
+
+	// the AST_Node that triggered this type declaration to facilitate code navigation
+	AST_NodeIndex ast_node;
+	std::string name;
+};
+
+class TypeStuff {
+public:
+	Parser parser;
+
+	std::vector<VariableDeclaration> variables;
+	std::vector<TypeNode> types;
+
+	TypeNode* i32_type;
+	TypeNode* f32_type;
+
+public:
+
+	TypeNode& addType(TypeNodeIndex parent_node, AST_NodeIndex ast_node, const std::string& name)
+	{
+		TypeNode& parent = types[parent_node];
+		parent.children.insert({ name, this->types.size() });
+
+		TypeNode& new_type = this->types.emplace_back();
+		new_type.parent = parent_node;
+		new_type.ast_node = ast_node;
+		new_type.name = name;
+
+		return new_type;
+	}
+
+	TypeNode& addType(TypeNodeIndex parent_node, AST_NodeIndex ast_node, const char* name)
+	{
+		std::string str = name;
+		return addType(parent_node, ast_node, str);
+	}
+
+	std::string toString(TypeNode* type)
+	{
+		std::string result = type->name;
+		TypeNodeIndex type_node_index = type->parent;
+
+		while (type_node_index != 0xFFFF'FFFF) {
+
+			type = &types[type_node_index];
+
+			result.insert(0, ".");
+			result.insert(0, type->name);
+		}
+
+		return result;
+	}
+
+	bool isCompatible(TypeNode* left, TypeNode* right)
+	{
+		TypeNode* a = left;
+		TypeNode* b = right;
+
+		while (true) {
+
+			if (a->name != b->name) {
+				return false;
+			}
+
+			if (a->parent == 0xFFFF'FFFF || b->parent == 0xFFFF'FFFF) {
+				return a->parent == b->parent;
+			}
+
+			a = &types[a->parent];
+			b = &types[b->parent];
+		}
+
+		throw std::exception();
+		return true;
+	}
+
+	/*TypeNode* findType(TypeNode* context, AST_NodeIndex ast_type)
+	{
+		 
+	}*/
+
+	void errorBinaryOperatorIncompatibleTypes(AST_BinaryOperator binary_op, TypeNode* a, TypeNode* b)
+	{
+		CompilerMessage& new_error = parser.errors.emplace_back();
+		new_error.msg = "Incompatible operand types: \n";
+		new_error.msg += "  " + toString(a) + "\n";
+		new_error.msg += "  " + toString(b) + "\n";
+		new_error.msg += "For operator: " + binary_op.toString() + "\n";
+		new_error.line = binary_op.start_pos.line;
+		new_error.column = binary_op.start_pos.column;
+	}
+
+	bool typeCheckExpression(AST_NodeIndex ast_node_index, TypeNode*& r_type)
+	{
+		AST_Node& ast_node = parser.nodes[ast_node_index];
+
+		if (std::holds_alternative<AST_Literal>(ast_node)) {
+
+			auto& literal = std::get<AST_Literal>(ast_node);
+
+			switch (literal.token.type) {
+			case TokenTypes::i32: {
+				r_type = i32_type;
+				return true;
+			}
+			case TokenTypes::f32: {
+				r_type = f32_type;
+				return true;
+			}
+			default:
+				throw;
+			}
+		}
+		// Type check binary operand
+		else if (std::holds_alternative<AST_BinaryOperator>(ast_node)) {
+
+			auto& binary_op = std::get<AST_BinaryOperator>(ast_node);
+			
+			TypeNode* left_type;
+			if (typeCheckExpression(binary_op.children[0], left_type) == false) {
+				return false;
+			}
+
+			TypeNode* right_type;
+			if (typeCheckExpression(binary_op.children[1], right_type) == false) {
+				return false;
+			}
+
+			if (isCompatible(left_type, right_type) == false) {
+				errorBinaryOperatorIncompatibleTypes(binary_op, left_type, right_type);
+			}
+
+			r_type = left_type;
+			return true;
+		}
+		else {
+			throw;
+		}
+	}
+
+	void typeCheckFile()
+	{
+		{
+			auto& root_var = variables.emplace_back();
+			root_var.node = 0;
+
+			auto& root_type = types.emplace_back();
+			root_type.parent = 0xFFFF'FFFF;
+
+			i32_type = &addType(0, 0xFFFF'FFFF, "i32");
+			f32_type = &addType(0, 0xFFFF'FFFF, "f32");
+		}
+
+		std::vector<AST_NodeIndex> now_nodes;
+		std::vector<AST_NodeIndex> next_nodes;
+
+		TypeNode* context_type = &types[0];
+
+		while (next_nodes.size()) {
+
+			for (auto now_node : now_nodes) {
+
+				AST_Node& now = parser.nodes[now_node];
+
+				if (std::holds_alternative<AST_VariableDeclaration>(now)) {
+
+					auto var_decl = parser.getNode<AST_VariableDeclaration>(now_node);
+
+
+					if (var_decl->default_expr != 0xFFFF'FFFF) {
+
+						auto default_expr = parser.getNode<AST_Expression>(var_decl->default_expr);
+					}
+				}
+			}
+		}
+	}
 };

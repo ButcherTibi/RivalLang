@@ -1,13 +1,26 @@
 ﻿
 // Header
-#include "utf_string.hpp"
+#include "utf8_string.hpp"
 
 // Standard
 #include <array>
 
-// Mine
-#include "DebugUtils.hpp"
 
+inline void assert_cond(bool condition) {
+#ifndef NDEBUG  // or _DEBUG
+	if (condition != true) {
+		throw std::exception();
+	}
+#endif
+}
+
+inline void assert_cond(bool condition, const char* fail_msg) {
+#ifndef NDEBUG  // or _DEBUG
+	if (condition != true) {
+		throw std::exception(fail_msg);
+	}
+#endif
+}
 
 uint32_t getUTF8_SequenceLength(uint8_t byte)
 {
@@ -90,43 +103,74 @@ uint32_t byteCount(utf8string_iter& begin, utf8string_iter& end)
 	return end.byte_index - begin.byte_index;
 }
 
-void utf8string_iter::prev(uint32_t count)
+utf8string_iter::utf8string_iter(utf8string* p, int32_t i)
 {
-	auto& bytes = parent->bytes;
-
-	uint32_t i = 0;
-	while (i < count) {
-
-		if (byte_index == 0) {
-			byte_index = -1;
-			return;
-		}
-
-		byte_index--;
-		uint8_t byte = bytes[byte_index];
-
-		if (((byte & 0b1000'0000) == 0) ||
-			((byte & 0b1100'0000) == 0b1100'0000) ||
-			((byte & 0b1110'0000) == 0b1110'0000) ||
-			((byte & 0b1111'0000) == 0b1111'0000))
-		{
-			return;
-		}
-
-		i++;
-	}
+	this->parent = p;
+	this->byte_index = i;
 }
 
-void utf8string_iter::next(uint32_t count)
+void utf8string_iter::operator++()
 {
-	// before iter
-	if (byte_index == - 1) {
-		byte_index = 0;
+	next();
+}
+
+void utf8string_iter::operator++(int)
+{
+	next();
+}
+
+void utf8string_iter::operator--()
+{
+	prev();
+}
+
+void utf8string_iter::operator--(int)
+{
+	prev();
+}
+
+void utf8string_iter::prev(uint32_t count)
+{
+	if (isBeforeBegin()) {
 		return;
 	}
 
 	auto& bytes = parent->bytes;
 
+	uint32_t i = 0;
+	while (i < count) {
+
+		byte_index--;
+
+		if (byte_index == -1) {
+			return;
+		}
+
+		uint8_t byte = bytes[byte_index];
+
+		// only count sequence start bytes, skip the rest
+		if (((byte & 0b1000'0000) == 0) ||
+			((byte & 0b1100'0000) == 0b1100'0000) ||
+			((byte & 0b1110'0000) == 0b1110'0000) ||
+			((byte & 0b1111'0000) == 0b1111'0000))
+		{
+			i++;
+		}
+	}
+}
+
+void utf8string_iter::next(uint32_t count)
+{
+	if (isAtNull()) {
+		return;
+	}
+
+	if (byte_index == -1) {
+		byte_index = 0;
+		return;
+	}
+
+	auto& bytes = parent->bytes;
 	uint8_t byte = bytes[byte_index];
 
 	uint32_t i = 0;
@@ -149,7 +193,7 @@ void utf8string_iter::next(uint32_t count)
 			byte_index += 4;
 		}
 		else {
-			throw std::exception("invalid byte");
+			throw std::exception("invalid byte, usually a continuation byte");
 		}
 
 		i++;
@@ -187,7 +231,7 @@ int32_t utf8string_iter::characterIndex()
 			byte_i += 4;
 		}
 		else {
-			throw std::exception("invalid byte");
+			throw std::exception("invalid byte, usually a continuation byte");
 		}
 
 		character_index++;
@@ -232,11 +276,9 @@ uint32_t utf8string_iter::codePoint()
 
 utf8string utf8string_iter::get()
 {
-#ifdef _DEBUG
-	if (byte_index < 0) {
-		throw std::exception();
+	if (byte_index < 0 || isAtNull()) {
+		return utf8string();
 	}
-#endif
 
 	auto& bytes = parent->bytes;
 	uint8_t byte = bytes[byte_index];
@@ -244,7 +286,7 @@ utf8string utf8string_iter::get()
 	utf8string character;
 
 	if (byte == 0) {
-		
+		// do nothing, default counstructor is null char
 	}
 	else if ((byte & 0b1000'0000) == 0) {
 		character.bytes.resize(2);
@@ -287,8 +329,17 @@ bool utf8string_iter::isBeforeBegin()
 	return byte_index == -1;
 }
 
+bool utf8string_iter::isNotAtNull()
+{
+	return isAtNull() == false;
+}
+
 bool utf8string_iter::isAtNull()
 {
+	if (byte_index == -1) {
+		return false;
+	}
+
 	auto& bytes = parent->bytes;
 	return bytes[byte_index] == 0;
 }
@@ -300,34 +351,9 @@ void utf8string_iter::swap(utf8string_iter& other)
 	other.byte_index = aux;
 }
 
-bool operator==(utf8string_iter a, utf8string_iter b)
+bool operator==(const utf8string_iter& a, const utf8string_iter& b)
 {
 	return a.byte_index == b.byte_index;
-}
-
-bool operator!=(utf8string_iter a, utf8string_iter b)
-{
-	return a.byte_index != b.byte_index;
-}
-
-bool operator<(utf8string_iter a, utf8string_iter b)
-{
-	return a.byte_index < b.byte_index;
-}
-
-bool operator>(utf8string_iter a, utf8string_iter b)
-{
-	return a.byte_index > b.byte_index;
-}
-
-bool operator<=(utf8string_iter a, utf8string_iter b)
-{
-	return a.byte_index <= b.byte_index;
-}
-
-bool operator>=(utf8string_iter a, utf8string_iter b)
-{
-	return a.byte_index >= b.byte_index;
 }
 
 bool operator==(utf8string_iter iter, const char8_t* str_literal)
@@ -346,6 +372,26 @@ bool operator==(utf8string_iter iter, const char8_t* str_literal)
 	}
 
 	return true;
+}
+
+bool operator<(const utf8string_iter& a, const utf8string_iter& b)
+{
+	return a.byte_index < b.byte_index;
+}
+
+bool operator>(const utf8string_iter& a, const utf8string_iter& b)
+{
+	return a.byte_index > b.byte_index;
+}
+
+bool operator<=(const utf8string_iter& a, const utf8string_iter& b)
+{
+	return a.byte_index <= b.byte_index;
+}
+
+bool operator>=(const utf8string_iter& a, const utf8string_iter& b)
+{
+	return a.byte_index >= b.byte_index;
 }
 
 utf8string::utf8string()
@@ -388,9 +434,13 @@ utf8string::utf8string(std::vector<uint8_t>& bytes)
 
 uint32_t utf8string::length()
 {
+	if (isEmpty()) {
+		return 0;
+	}
+
 	uint32_t count = 0;
 
-	for (utf8string_iter iter = begin(); !iter.isAtNull(); iter.next()) {
+	for (auto iter = begin(); iter.isNotAtNull(); iter.next()) {
 		count++;
 	}
 
@@ -400,6 +450,58 @@ uint32_t utf8string::length()
 bool utf8string::isEmpty()
 {
 	return bytes.size() == 1;
+}
+
+bool utf8string::contains(const utf8string& content)
+{
+	uint32_t content_idx = 0;
+	uint32_t start = 0;
+
+	for (int32_t i = 0; i < bytes.size() - 1; i++) {
+
+		if (bytes[i] == content.bytes[content_idx]) {
+			content_idx++;
+
+			if (content_idx == 1) {
+				start = i;
+			}
+
+			if (content_idx == content.bytes.size() - 1) {
+				return true;
+			}
+		}
+		else {
+			content_idx = 0;
+		}
+	}
+
+	return false;
+}
+
+utf8string_iter utf8string::find(const utf8string& content)
+{
+	uint32_t content_idx = 0;
+	uint32_t start = 0;
+
+	for (int32_t i = 0; i < bytes.size() - 1; i++) {
+
+		if (bytes[i] == content.bytes[content_idx]) {
+			content_idx++;
+
+			if (content_idx == 1) {
+				start = i;
+			}
+
+			if (content_idx == content.bytes.size() - 1) {
+				return iter(this, start);
+			}
+		}
+		else {
+			content_idx = 0;
+		}
+	}
+
+	return iter(this, -1);
 }
 
 utf8string_iter utf8string::before()
@@ -420,13 +522,18 @@ utf8string_iter utf8string::begin()
 	return iter;
 }
 
+utf8string_iter utf8string::first()
+{
+	return begin();
+}
+
 utf8string_iter utf8string::last()
 {
 	utf8string_iter iter;
 	iter.parent = this;
-	iter.byte_index = bytes.size() - 1;
 
-	if (bytes.size() > 1) {
+	if (isEmpty() == false) {
+		iter.byte_index = bytes.size() - 1;
 		iter.prev();
 	}
 
@@ -440,6 +547,11 @@ utf8string_iter utf8string::after()
 	iter.byte_index = bytes.size() - 1;
 
 	return iter;
+}
+
+utf8string_iter utf8string::end()
+{
+	return after();
 }
 
 void utf8string::push(uint32_t code_point)
@@ -473,8 +585,33 @@ void utf8string::push(uint32_t code_point)
 	bytes[bytes.size() - 1] = '\0';
 }
 
-void utf8string::insertAfter(utf8string_iter& location,
-	utf8string_iter& new_content_start, utf8string_iter& new_content_end)
+void utf8string::push(utf8string& new_content)
+{
+	auto location = after();
+	overwrite(location, new_content);
+}
+
+void utf8string::push(const char8_t* utf8_string_literal)
+{
+	utf8string new_content = utf8_string_literal;
+	push(new_content);
+}
+
+void utf8string::prepend(utf8string& new_content)
+{
+	auto location = before();
+	insertAfter(location, new_content);
+}
+
+void utf8string::prepend(const char8_t* utf8_string_literal)
+{
+	auto location = before();
+	utf8string new_content = utf8_string_literal;
+	insertAfter(location, new_content);
+}
+
+void utf8string::insertAfter(iter& location,
+	iter& new_content_start, iter& new_content_end)
 {
 	assert_cond(location < after(), "cannot insert a character past the after iterator i.e past NULL terminator");
 
@@ -490,12 +627,12 @@ void utf8string::insertAfter(utf8string_iter& location,
 	//
 	// 0 1 X X X X 2 3 4
 	//             |after_new_content
-	utf8string_iter displaced_content_begin = location;
+	iter displaced_content_begin = location;
 	displaced_content_begin.next();
 
-	utf8string_iter displaced_content_end = after();
+	iter displaced_content_end = after();
 
-	utf8string_iter after_new_content = displaced_content_begin;
+	iter after_new_content = displaced_content_begin;
 	after_new_content.byte_index += byteCount(new_content_start, new_content_end);
 
 	overwrite(after_new_content, displaced_content_begin, displaced_content_end);
@@ -506,16 +643,22 @@ void utf8string::insertAfter(utf8string_iter& location,
 	bytes[bytes.size() - 1] = '\0';
 }
 
-void utf8string::insertAfter(utf8string_iter& location, utf8string& new_content)
+void utf8string::insertAfter(iter& location, utf8string& new_content)
 {
-	utf8string_iter new_content_start = new_content.begin();
-	utf8string_iter new_content_end = new_content.after();
+	iter new_content_start = new_content.begin();
+	iter new_content_end = new_content.after();
 
 	insertAfter(location, new_content_start, new_content_end);
 }
 
-void utf8string::overwrite(utf8string_iter& location,
-	utf8string_iter& new_content_start, utf8string_iter& new_content_end)
+void utf8string::insertAfter(iter& location, const char8_t* utf8_string_literal)
+{
+	utf8string new_content = utf8_string_literal;
+	insertAfter(location, new_content);
+}
+
+void utf8string::overwrite(iter& location,
+	iter& new_content_start, iter& new_content_end)
 {
 	if (new_content_start == new_content_end) {
 		return;
@@ -533,24 +676,30 @@ void utf8string::overwrite(utf8string_iter& location,
 	std::memcpy(bytes.data() + location.byte_index, new_content_start.data(), byte_count);
 }
 
-void utf8string::overwrite(utf8string_iter& location,
-	utf8string_iter& new_content_start, uint32_t new_content_length)
+void utf8string::overwrite(iter& location,
+	iter& new_content_start, uint32_t new_content_length)
 {
-	utf8string_iter new_content_end = new_content_start;
+	iter new_content_end = new_content_start;
 	new_content_end.next(new_content_length);
 
 	overwrite(location, new_content_start, new_content_end);
 }
 
-void utf8string::overwrite(utf8string_iter& location, utf8string& new_content)
+void utf8string::overwrite(iter& location, utf8string& new_content)
 {
-	utf8string_iter new_content_start = new_content.begin();
-	utf8string_iter new_content_end = new_content.after();
+	auto new_content_start = new_content.begin();
+	auto new_content_end = new_content.after();
 
 	overwrite(location, new_content_start, new_content_end);
 }
 
-void utf8string::replaceSelection(utf8string_iter& select_start, uint32_t select_length,
+void utf8string::overwrite(iter& location, const char8_t* utf8_string_literal)
+{
+	utf8string new_content = utf8_string_literal;
+	overwrite(location, new_content);
+}
+
+void utf8string::replaceSelection(iter& select_start, uint32_t select_length,
 	utf8string& new_content)
 {
 	if (new_content.length() == 0) {
@@ -568,13 +717,13 @@ void utf8string::replaceSelection(utf8string_iter& select_start, uint32_t select
 	//             new content end
 	
 	// move existing content further back after where the new content will be placed
-	utf8string_iter new_content_end = select_start;
+	iter new_content_end = select_start;
 	new_content_end.next(new_content.length());
 
-	utf8string_iter select_end = select_start;
+	iter select_end = select_start;
 	select_end.next(select_length);
 
-	utf8string_iter old_end = after();
+	iter old_end = after();
 
 	uint32_t select_bytes_length = select_end.byte_index - select_start.byte_index;
 	uint32_t new_bytes_size = bytes.size() - select_bytes_length + new_content.bytes.size() - 1;
@@ -588,7 +737,14 @@ void utf8string::replaceSelection(utf8string_iter& select_start, uint32_t select
 	bytes[bytes.size() - 1] = '\0';
 }
 
-void utf8string::erase(utf8string_iter& select_start, utf8string_iter& select_end)
+void utf8string::replaceSelection(iter& selection_start, uint32_t selection_length,
+	const char8_t* utf8_string_literal)
+{
+	utf8string new_content = utf8_string_literal;
+	replaceSelection(selection_start, selection_length, new_content);
+}
+
+void utf8string::erase(iter& select_start, iter& select_end)
 {
 	assert_cond(before() < select_start && select_start <= after(),
 		"");
@@ -612,7 +768,7 @@ void utf8string::erase(utf8string_iter& select_start, utf8string_iter& select_en
 		//     new content start
 		// 0 1 4 5 6
 		//             new content end
-		utf8string_iter displaced_content_end = after();
+		iter displaced_content_end = after();
 
 		overwrite(select_start, select_end, displaced_content_end);
 	}
@@ -621,15 +777,60 @@ void utf8string::erase(utf8string_iter& select_start, utf8string_iter& select_en
 	bytes[bytes.size() - 1] = '\0';
 }
 
-void utf8string::erase(utf8string_iter& select_start, uint32_t selection_length)
+void utf8string::erase(iter& select_start, uint32_t selection_length)
 {
-	utf8string_iter select_end = select_start;
+	iter select_end = select_start;
 	select_end.next(selection_length);
 
 	erase(select_start, select_end);
 }
 
-utf8string utf8string::extract(utf8string_iter& begin, utf8string_iter& end)
+void utf8string::erase(utf8string& target)
+{
+	iter start = find(target);
+
+	if (start != target.before()) {
+		
+		iter end = start;
+		end.byte_index += target.bytes.size() - 1;
+
+		erase(start, end);
+	}
+}
+
+void utf8string::erase(const char8_t* utf8_string_literal)
+{
+	utf8string target = utf8_string_literal;
+	erase(target);
+}
+
+void utf8string::pop(uint32_t chars_to_delete)
+{
+	auto i = end();
+	
+	while (chars_to_delete > 0 && i != before()) {
+		i--;
+		chars_to_delete--;
+	}
+
+	auto select_end = end();
+	erase(i, select_end);
+}
+
+void utf8string::popFront(uint32_t chars_to_delete)
+{
+	auto i = begin();
+
+	while (chars_to_delete > 0 && i < end()) {
+		i++;
+		chars_to_delete--;
+	}
+
+	auto select_begin = begin();
+	erase(select_begin, i);
+}
+
+utf8string utf8string::copy(iter& begin, iter& end)
 {
 	if (begin.byte_index == end.byte_index) {
 		return utf8string();
@@ -651,7 +852,7 @@ utf8string utf8string::extract(utf8string_iter& begin, utf8string_iter& end)
 	return result;
 }
 
-utf8string utf8string::extract(utf8string_iter& begin, uint32_t count)
+utf8string utf8string::copy(iter& begin, uint32_t count)
 {
 	if (begin.isAtNull() || count == 0) {
 		return utf8string();
@@ -661,7 +862,7 @@ utf8string utf8string::extract(utf8string_iter& begin, uint32_t count)
 	result.bytes.resize(count + 1);
 
 	uint32_t i = 0;
-	utf8string_iter end = begin;
+	iter end = begin;
 	while (i < count && end.isAtNull() == false) {
 		i++;
 		end.next();
@@ -686,20 +887,14 @@ const char* utf8string::c_str()
 	return reinterpret_cast<const char*>(bytes.data());
 }
 
-
-//std::wstring utf8string::w_str()
-//{
-//	std::wstring wide_string;
-//	mbtowc(wide_string.data(), reinterpret_cast<const char*>(str.c_str()), str.length());
-//
-//	return wide_string
-//}
-
-bool operator==(utf8string& str, const char8_t* str_literal)
+bool operator==(const utf8string& left, const char8_t* str_literal)
 {
-	for (uint32_t i = 0; i < str.bytes.size(); i++) {
+	for (uint32_t i = 0; i < left.bytes.size(); i++) {
 
-		if (str.bytes[i] != str_literal[i]) {
+		if (left.bytes[i] != str_literal[i]) {
+
+			uint8_t a = left.bytes[i];
+			uint8_t b = str_literal[i];
 			return false;
 		}
 
@@ -711,60 +906,10 @@ bool operator==(utf8string& str, const char8_t* str_literal)
 	return true;
 }
 
-bool operator!=(utf8string& str, const char8_t* str_literal)
-{
-	return !(str == str_literal);
-}
-
-namespace _utf8string_tests {
-
-	void testInsertAfter()
-	{
-		// Before
-		{
-			utf8string str = u8"ăîșț";
-			utf8string_iter str_iter = str.before();
-			utf8string new_content = u8"Ă";
-
-			utf8string new_str = str;
-			new_str.insertAfter(str_iter, new_content);
-
-			if (new_str != u8"Ăăîșț") {
-				throw std::exception();
-			}
-		}
-
-		// Begin
-		{
-			utf8string str = u8"ăîșț";
-			utf8string_iter str_iter = str.begin();
-			utf8string new_content = u8"Ă";
-
-			utf8string new_str = str;
-			new_str.insertAfter(str_iter, new_content);
-
-			if (new_str != u8"ăĂîșț") {
-				throw std::exception();
-			}
-		}
-
-		// Last
-		{
-			utf8string str = u8"ăîșț";
-			utf8string_iter str_iter = str.last();
-			utf8string new_content = u8"Ă";
-
-			utf8string new_str = str;
-			new_str.insertAfter(str_iter, new_content);
-
-			if (new_str != u8"ăîșțĂ") {
-				throw std::exception();
-			}
-		}
-	}
-
-	void testEverything()
-	{
-		testInsertAfter();
-	}
-}
+//std::wstring utf8string::w_str()
+//{
+//	std::wstring wide_string;
+//	mbtowc(wide_string.data(), reinterpret_cast<const char*>(str.c_str()), str.length());
+//
+//	return wide_string
+//}

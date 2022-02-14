@@ -1,19 +1,39 @@
 #pragma once
 
-#include "Toolbox\utf_string.hpp"
+#include <vector>
+#include <string>
+#include <inttypes.h>
+
+using namespace std::string_literals;
 
 
 enum class TokenTypes {
 	IDENTIFIER,
 
-	// Literals
-	NUMBER,
+	// Integer literals
+	i32,
+	i64,
+
+	u32,
+	u64,
+
+	// Float point literals
+	f32,
+	f64,
+
+	// hexadecimal, binary literals
+	number,
+
+	// string literal
 	STRING,
 
 	SYMBOL,
 
 	SPACING
 };
+
+std::string toStringTokenTypes(TokenTypes token_type);
+
 
 struct Token {
 	TokenTypes type;
@@ -29,28 +49,27 @@ struct Token {
 public:
 	void end(uint32_t i_to_next_token);
 	void end(std::vector<uint8_t>& bytes, uint32_t i_to_next_token);
+	void endSuffixedLiteral(std::vector<uint8_t>& bytes, uint32_t end_i, uint32_t suffix_length);
 
 	bool isSpacing();
+	bool isNumberLike();
 	bool isSymbol();
 	bool isSymbol(std::string other);
 	bool isExpressionSign();
 };
 
 
-bool isDigit(uint8_t byte);
-bool isSmallASCII_Letter(uint8_t byte);
-bool isBigASCII_Letter(uint8_t byte);
-
-bool isLetter(uint8_t byte);
-bool isSpacing(uint8_t byte);
-
-
 class Lexer {
 public:
 	std::string file_path;
+
+	// bytes of the file
 	std::vector<uint8_t> bytes;
+	
+	// curent index
 	uint32_t i;
 
+	// current line and column
 	uint32_t line;
 	uint32_t column;
 
@@ -88,7 +107,7 @@ public:
 	// everything, must put this last
 	void lexSymbol();
 
-	void lexFile(std::vector<uint8_t>&& file_bytes, std::string& file_path);
+	void lexFile(std::vector<uint8_t>& file_bytes, std::string& file_path);
 
 
 	void print(bool ignore_spacing = false);

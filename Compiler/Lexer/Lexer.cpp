@@ -39,26 +39,28 @@ std::string toStringTokenTypes(TokenTypes token_type)
 	throw;
 }
 
-void Token::end(uint32_t i_to_next_token)
+void CodeSelection::operator=(const Token& token)
 {
-	length = i_to_next_token - start;
+	start = token.selection.start;
+	end = token.selection.end;
 }
 
-void Token::end(std::vector<uint8_t>& bytes, uint32_t i_to_next_token)
+void Token::start(const Lexer* lexer)
 {
-	length = i_to_next_token - start;
-
-	value.resize(length);
-	std::memcpy(value.data(), bytes.data() + start, length);
+	selection.start.line = lexer->line;
+	selection.start.column = lexer->column;
 }
 
-void Token::endSuffixedLiteral(std::vector<uint8_t>& bytes, uint32_t end_i, uint32_t suffix_length)
+void Token::end(const Lexer* lexer)
 {
-	length = end_i - start;
+	selection.end.line = lexer->line;
+	selection.end.column = lexer->column;
+}
 
-	uint32_t value_length = length - suffix_length;
-	value.resize(value_length);
-	std::memcpy(value.data(), bytes.data() + start, value_length);
+void Token::assign(const Lexer* lexer, uint32_t start_end, uint32_t end_index)
+{
+	value.resize(end_index - start_end);
+	std::memcpy(value.data(), lexer->bytes.data() + start_end, value.size());
 }
 
 bool Token::isSpacing()
@@ -74,7 +76,8 @@ bool Token::isNumberLike()
 		type == TokenTypes::u32 ||
 		type == TokenTypes::u64 ||
 		type == TokenTypes::f32 ||
-		type == TokenTypes::f64;
+		type == TokenTypes::f64 ||
+		type == TokenTypes::number;
 }
 
 bool Token::isSymbol()
@@ -173,17 +176,18 @@ void Lexer::lexIdentifier()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::IDENTIFIER;
-	new_token.start = i;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
+
+	uint32_t start_byte_idx = i;
 
 	while (true) {
 
 		if (isLetter(bytes[i]) || isDigit(bytes[i])) {
 			advance();
+			new_token.end(this);
 		}
 		else {
-			new_token.end(bytes, i);
+			new_token.assign(this, start_byte_idx, i);
 			return;
 		}
 	}
@@ -193,61 +197,114 @@ void Lexer::lexNumber()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::i32;
-	new_token.start = i;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
+
+	uint32_t start_index = 0xFFFF'FFFF;
+	uint32_t end_index{};
 
 	while (i < bytes.size()) {
 
 		uint8_t byte = bytes[i];
 
-		if (isDigit(byte) || byte == ' ') {		
+		if (isDigit(byte)) {
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i + 1;
+			advance();
+			new_token.end(this);
+		}
+		else if (byte == ' ') {
 			advance();
 		}
 		// 32 bit float point
 		else if (byte == '.') {
 			new_token.type = TokenTypes::f32;
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i + 1;
 			advance();
+			new_token.end(this);
 		}
 
 		// 32 bit unsigned integer
 		else if (byte == 'u') {
 			new_token.type = TokenTypes::u32;
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i;
+			new_token.assign(this, start_index, end_index);
 			advance();
-			new_token.endSuffixedLiteral(bytes, i, 1);
+			new_token.end(this);
 			return;
 		}
 		// 64 bit unsigned integer
 		else if (byte == 'U') {
 			new_token.type = TokenTypes::u64;
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i;
+			new_token.assign(this, start_index, end_index);
 			advance();
-			new_token.endSuffixedLiteral(bytes, i, 1);
+			new_token.end(this);
 			return;
 		}
 		// 64 bit signed integer
 		else if (byte == 'I') {
 			new_token.type = TokenTypes::i64;
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i;
+			new_token.assign(this, start_index, end_index);
 			advance();
-			new_token.endSuffixedLiteral(bytes, i, 1);
+			new_token.end(this);
 			return;
 		}
 
 		// 32 bit float
 		else if (byte == 'f') {
 			new_token.type = TokenTypes::f32;
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i;
+			new_token.assign(this, start_index, end_index);
 			advance();
-			new_token.endSuffixedLiteral(bytes, i, 1);
+			new_token.end(this);
 			return;
 		}
 		// 64 bit float
 		else if (byte == 'F') {
 			new_token.type = TokenTypes::f64;
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i;
+			new_token.assign(this, start_index, end_index);
 			advance();
-			new_token.endSuffixedLiteral(bytes, i, 1);
+			new_token.end(this);
 			return;
 		}
 		else {
-			new_token.end(bytes, i);
+			new_token.assign(this, start_index, end_index);
 			return;
 		}
 	}
@@ -257,36 +314,46 @@ void Lexer::lexHexadecimal()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::number;
-	new_token.start = i;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
 
-	if (bytes[i] != '0') {
-		new_token.end(bytes, i);
-		return;
-	}
+	uint32_t start_index = 0xFFFF'FFFF;
+	uint32_t end_index{};
 
+	// 0
 	advance();
 
-	if (bytes[i] != 'x') {
-		new_token.end(bytes, i);
-		return;
-	}
-
+	// 0x
 	advance();
 
 	while (i < bytes.size()) {
 
 		uint8_t byte = bytes[i];
 
-		if (isDigit(byte) || byte == ' ') {
+		if (isDigit(byte)) {
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i + 1;
 			advance();
+			new_token.end(this);
 		}
 		else if (('A' <= byte && byte <= 'F') || ('a' <= byte && byte <= 'f')) {
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i + 1;
+			advance();
+			new_token.end(this);
+		}
+		else if (byte == ' ') {
 			advance();
 		}
 		else {
-			new_token.end(bytes, i);
+			new_token.assign(this, start_index, end_index);
 			return;
 		}
 	}
@@ -296,33 +363,36 @@ void Lexer::lexBinary()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::number;
-	new_token.start = i;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
 
-	if (bytes[i] != '0') {
-		new_token.end(bytes, i);
-		return;
-	}
+	uint32_t start_index = 0xFFFF'FFFF;
+	uint32_t end_index{};
 
+	// 0
 	advance();
 
-	if (bytes[i] != 'b') {
-		new_token.end(bytes, i);
-		return;
-	}
-
+	// 0b
 	advance();
 
 	while (i < bytes.size()) {
 
 		uint8_t byte = bytes[i];
 
-		if (byte == '0' || byte == '1' || byte == ' ') {
+		if (byte == '0' || byte == '1') {
+
+			if (start_index == 0xFFFF'FFFF) {
+				start_index = i;
+			}
+
+			end_index = i + 1;
+			advance();
+			new_token.end(this);
+		}
+		else if (byte == ' ') {
 			advance();
 		}
 		else {
-			new_token.end(bytes, i);
+			new_token.assign(this, start_index, end_index);
 			return;
 		}
 	}
@@ -332,14 +402,12 @@ void Lexer::lexSpacing()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::SPACING;
-	new_token.start = i;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
 
 	while (true) {
 
 		if (isSpacing(bytes[i]) == false) {
-			new_token.end(i);
+			new_token.end(this);
 			return;
 		}
 
@@ -351,9 +419,7 @@ void Lexer::lexString()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::STRING;
-	new_token.start = i;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
 
 	uint32_t d_quotes_count = 0;
 	bool special_char = false;
@@ -366,12 +432,13 @@ void Lexer::lexString()
 
 			if (byte == '"') {
 				d_quotes_count++;
+				new_token.selection.end.line = line;
+				new_token.selection.end.column = column + 1;
 			}
 			else if (isSpacing(byte) == false && d_quotes_count % 2 == 0) {
-				new_token.end(i);
 				return;
 			}
-			// begin handling special characters such as \r \n \t
+			// begin handling special characters such as \n \t
 			else if (byte == '\\') {
 				special_char = true;
 			}
@@ -385,7 +452,8 @@ void Lexer::lexString()
 			if (byte == 'n') {
 				new_token.value.push_back('\n');
 			}
-			// this character is legacy, useless and should no longer exist
+			// youre not seriously thinking of adding a literal for a character that is so
+			// legacy and useless that it doesn't even have it's own keyboard key
 			/*else if (byte == 'r') {
 				new_token.value.push_back('\r');
 			}*/
@@ -411,9 +479,7 @@ void Lexer::lexVerbatimString()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::STRING;
-	new_token.start = i;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
 
 	uint32_t d_quotes_count = 0;
 
@@ -423,9 +489,10 @@ void Lexer::lexVerbatimString()
 
 		if (byte == '\'') {
 			d_quotes_count++;
+			new_token.selection.end.line = line;
+			new_token.selection.end.column = column + 1;
 		}
 		else if (isSpacing(byte) == false && d_quotes_count % 2 == 0) {
-			new_token.end(i);
 			return;
 		}
 		// store character
@@ -441,18 +508,16 @@ void Lexer::lexSymbol()
 {
 	Token& new_token = tokens.emplace_back();
 	new_token.type = TokenTypes::SYMBOL;
-	new_token.start = i;
-	new_token.length = 1;
-	new_token.line = line;
-	new_token.column = column;
+	new_token.start(this);
+	new_token.selection.end = new_token.selection.start;
+	new_token.selection.end.column += 1;
 	new_token.value = bytes[i];
 
 	advance();
 }
 
-void Lexer::lexFile(std::vector<uint8_t>& new_bytes, std::string& new_file_path)
+void Lexer::lexFile(std::vector<uint8_t>& new_bytes)
 {
-	file_path = new_file_path;
 	bytes = new_bytes;
 	i = 0;
 
@@ -515,23 +580,31 @@ void Lexer::lexFile(std::vector<uint8_t>& new_bytes, std::string& new_file_path)
 	}
 }
 
-void Lexer::print(bool ignore_spacing)
+void Lexer::print(LexerPrintSettings settings)
 {
 	std::string token_type;
 
 	for (Token& token : tokens) {
 
 		if (token.type != TokenTypes::SPACING) {
-			printf("%s (%d, %d): %s = %s \n",
-				file_path.c_str(),
-				token.line, token.column,
-				toStringTokenTypes(token.type).c_str(),
-				token.value.c_str());
+
+			if (settings.show_selection == false) {
+				printf("(%d, %d): %s = %s \n",
+					token.selection.start.line, token.selection.start.column,
+					toStringTokenTypes(token.type).c_str(),
+					token.value.c_str());
+			}
+			else {
+				printf("{%d %d, %d %d}: %s = %s \n",
+					token.selection.start.line, token.selection.start.column,
+					token.selection.end.line, token.selection.end.column,
+					toStringTokenTypes(token.type).c_str(),
+					token.value.c_str());
+			}
 		}
-		else if (ignore_spacing == false) {
-			printf("%s (%d, %d): %s \n",
-				file_path.c_str(),
-				token.line, token.column,
+		else if (settings.ignore_spacing == false) {
+			printf("(%d, %d): %s \n",
+				token.selection.start.line, token.selection.start.column,
 				toStringTokenTypes(token.type).c_str());
 		}
 	}

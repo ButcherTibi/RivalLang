@@ -44,13 +44,14 @@ int main(int argument_count, char* argv[])
 			filesys::readFile(current_folder, bytes);
 			bytes.push_back('\0');
 
-			TypeStuff type_stuff;
-			type_stuff.parser.parseFile(bytes, file_name);
+			Parser parser;
+			parser.init();
+			parser.parseFile(bytes, file_name);
 
 			printf("\n");
 			PrintAST_TreeSettings settings;
-			settings.show_source_ranges = false;
-			type_stuff.parser.printTree(settings);
+			settings.show_code_selections = false;
+			parser.printTree(settings);
 		}
 	}
 

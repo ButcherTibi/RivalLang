@@ -5,10 +5,20 @@
 using namespace std::string_literals;
 
 
-void SourceCodePosition::operator=(const Token& token)
+void AST_BaseNode::setStart(const Token& token)
 {
-	this->line = token.line;
-	this->column = token.column;
+	selection.start = token.selection.start;
+}
+
+void AST_BaseNode::setEnd(const Token& token)
+{
+	selection.end = token.selection.end;
+}
+
+void Parser::init()
+{
+	AST_Root& root = nodes.emplace_back().emplace<AST_Root>();
+	root.parent = 0xFFFF'FFFF;
 }
 
 Token& Parser::getToken(uint32_t token_index)
@@ -18,7 +28,7 @@ Token& Parser::getToken(uint32_t token_index)
 
 std::string AST_SourceFile::toString()
 {
-	return "Source File";
+	return "Source File = " + file_path;
 };
 
 std::string AST_Type::toString()
@@ -68,7 +78,7 @@ std::string AST_VariableAssignment::toString()
 
 std::string AST_VariableDeclaration::toString()
 {
-	std::string str = std::string("Variable Declaration name = ") + name_token.value;
+	std::string str = std::string("Variable Decl name = ") + name_token.value;
 
 	return str;
 }
@@ -94,8 +104,11 @@ AST_BaseNode* Parser::getBaseNode(uint32_t node_idx)
 {
 	AST_Node& node = nodes[node_idx];;
 
+	if (std::holds_alternative<AST_Root>(node)) {
+		return std::get_if<AST_Root>(&node);
+	}
 	// Code Spliting
-	if (std::holds_alternative<AST_SourceFile>(node)) {
+	else if (std::holds_alternative<AST_SourceFile>(node)) {
 		return std::get_if<AST_SourceFile>(&node);
 	}
 	// Expression
@@ -145,3 +158,26 @@ void Parser::linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_
 	AST_BaseNode* child = getBaseNode(child_node_index);
 	child->parent = parent_node_index;
 }
+
+AST_Scope* Parser::getScope(AST_NodeIndex ast_scope_idx)
+{
+	AST_Node& ast_node = nodes[ast_scope_idx];
+
+	if (std::holds_alternative<AST_SourceFile>(ast_node)) {
+		return std::get_if<AST_SourceFile>(&ast_node);
+	}
+	if (std::holds_alternative<AST_Statements>(ast_node)) {
+		return std::get_if<AST_Statements>(&ast_node);
+	}
+
+	throw;
+}
+
+//void Parser::linkScopes(AST_NodeIndex parent_idx, AST_NodeIndex child_idx)
+//{
+//	AST_Scope* parent = getScope(parent_idx);
+//	parent->children.push_back(child_idx);
+//
+//	AST_Scope* child = getScope(child_idx);
+//	child->parent = parent_idx;
+//}

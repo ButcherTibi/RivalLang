@@ -313,7 +313,7 @@ bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
 	if (skipToIdentifierToken(i)) {
 
 		type->name = getToken(i);
-		type->start_pos = type->name;
+		type->setStart(type->name);
 		i++;
 
 		// type has template arguments
@@ -336,7 +336,7 @@ bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
 					i++;
 
 					type = getNode<AST_Type>(r_type);
-					type->end_pos = getToken(i);
+					type->setEnd(getToken(i));
 					return true;
 				}
 				else {
@@ -347,7 +347,7 @@ bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
 		}
 		else {
 			type = getNode<AST_Type>(r_type);
-			type->end_pos = getToken(i);
+			type->setEnd(getToken(i));
 			return true;
 		}
 	}
@@ -404,12 +404,14 @@ bool Parser::_parseExpression(uint32_t& i, int32_t parent_precedence,
 			i = t;
 			auto num = addNode<AST_Literal>(result);
 			num->token = getToken(i);
+			num->selection = num->token;
 		}
 		else if (skipToStringToken(i, t)) {
 
 			i = t;
 			auto str = addNode<AST_Literal>(result);
 			str->token = getToken(i);
+			str->selection = str->token;
 		}
 		else if (skipToSymbolToken(i, "(", t)) {
 
@@ -587,7 +589,7 @@ bool Parser::parseExpression(uint32_t parent_node_index, uint32_t& i,
 {
 	{
 		auto expr = addNode<AST_Expression>(parent_node_index, r_expression);
-		expr->start_pos = getToken(i);
+		expr->setStart(getToken(i));
 	}
 
 	uint32_t expression_root;
@@ -601,7 +603,7 @@ bool Parser::parseExpression(uint32_t parent_node_index, uint32_t& i,
 			linkParentAndChild(r_expression, expression_root);
 
 			auto expr = getBaseNode(r_expression);
-			expr->end_pos = getToken(i);
+			expr->setEnd(getToken(i));
 			return true;
 		}
 	}
@@ -610,8 +612,8 @@ bool Parser::parseExpression(uint32_t parent_node_index, uint32_t& i,
 	}
 }
 
-bool Parser::parseVariableDeclaration(uint32_t parent_node_index, uint32_t& i,
-	uint32_t& r_var_decl_node)
+bool Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index, AST_NodeIndex parent_scope_idx, uint32_t& i,
+	AST_NodeIndex& r_var_decl_node)
 {
 	uint32_t new_i;
 
@@ -621,7 +623,10 @@ bool Parser::parseVariableDeclaration(uint32_t parent_node_index, uint32_t& i,
 		{
 			auto* var_decl = addNode<AST_VariableDeclaration>(parent_node_index, r_var_decl_node);
 			var_decl->name_token = getToken(i);
-			var_decl->start_pos = var_decl->name_token;
+			var_decl->setStart(var_decl->name_token);
+
+			AST_Scope* scope = getScope(parent_scope_idx);
+			scope->var_decl.push_back(r_var_decl_node);
 		}
 		
 		i++;
@@ -644,7 +649,7 @@ bool Parser::parseVariableDeclaration(uint32_t parent_node_index, uint32_t& i,
 						auto var_decl = getNode<AST_VariableDeclaration>(r_var_decl_node);
 						var_decl->type = type;
 						var_decl->default_expr = default_expr;
-						var_decl->end_pos = getToken(i);
+						var_decl->setEnd(getToken(i));
 						return true;
 					}
 					else {
@@ -656,7 +661,7 @@ bool Parser::parseVariableDeclaration(uint32_t parent_node_index, uint32_t& i,
 				auto var_decl = getNode<AST_VariableDeclaration>(r_var_decl_node);
 				var_decl->type = type;
 				var_decl->default_expr = 0xFFFF'FFFF;
-				var_decl->end_pos = getToken(i);
+				var_decl->setEnd(getToken(i));
 				return true;
 			}
 			else {
@@ -682,7 +687,7 @@ bool Parser::parseVariableAssignment(uint32_t parent_node_index, uint32_t& i,
 
 	if (skipToIdentifierToken(i)) {
 
-		assignment->start_pos = getToken(i);
+		assignment->setStart(getToken(i));
 
 		parseCompositeName(i, assignment->name_tokens);
 
@@ -694,7 +699,7 @@ bool Parser::parseVariableAssignment(uint32_t parent_node_index, uint32_t& i,
 			if (parseExpression(r_assignment_node, i, r_expression)) {
 
 				assignment = getNode<AST_VariableAssignment>(r_assignment_node);
-				assignment->end_pos = getToken(i);
+				assignment->setEnd(getToken(i));
 				return true;
 			}
 			else {
@@ -722,7 +727,7 @@ bool Parser::parseFunctionCall(uint32_t parent_node_index, uint32_t& i,
 	if (skipToIdentifierToken(i, new_i)) {
 
 		i = new_i;
-		func_call->start_pos = getToken(i);
+		func_call->setStart(getToken(i));
 		parseCompositeName(i, func_call->name_tokens);
 
 		if (skipToSymbolToken(i, "(", new_i)) {
@@ -760,14 +765,14 @@ bool Parser::parseFunctionCall(uint32_t parent_node_index, uint32_t& i,
 				}
 
 				func_call = getNode<AST_FunctionCall>(r_func_call_node);
-				func_call->end_pos = getToken(i);
+				func_call->setEnd(getToken(i));
 				return true;
 			}
 
 			parseModifiers(i, func_call->modifiers_tokens);
 
 			func_call = getNode<AST_FunctionCall>(r_func_call_node);
-			func_call->end_pos = getToken(i);
+			func_call->setEnd(getToken(i));
 			return true;
 		}
 		else {
@@ -781,8 +786,8 @@ bool Parser::parseFunctionCall(uint32_t parent_node_index, uint32_t& i,
 	}
 }
 
-bool Parser::parseStatement(uint32_t parent, uint32_t& i,
-	uint32_t& r_statement)
+bool Parser::parseStatement(AST_NodeIndex parent, AST_NodeIndex ast_scope_idx, uint32_t& i,
+	AST_NodeIndex& r_statement)
 {
 	uint32_t new_i;
 
@@ -799,7 +804,7 @@ bool Parser::parseStatement(uint32_t parent, uint32_t& i,
 			// simple_name type_identifier
 			if (skipToIdentifierToken(i, new_i)) {
 				i = name_token;
-				return parseVariableDeclaration(parent, i, r_statement);
+				return parseVariableDeclaration(parent, ast_scope_idx, i, r_statement);
 			}
 			// variable assignment
 			// name =
@@ -845,10 +850,10 @@ bool Parser::parseStatement(uint32_t parent, uint32_t& i,
 	}
 }
 
-bool Parser::parseStatements(uint32_t parent_node_index, uint32_t& i,
-	uint32_t& r_statements)
+bool Parser::parseStatements(AST_NodeIndex ast_parent_idx, AST_NodeIndex, uint32_t& i,
+	AST_NodeIndex& r_statements)
 {
-	addNode<AST_Statements>(parent_node_index, r_statements);
+	addNode<AST_Statements>(ast_parent_idx, r_statements);
 
 	uint32_t new_i;
 	bool first = true;
@@ -857,7 +862,7 @@ bool Parser::parseStatements(uint32_t parent_node_index, uint32_t& i,
 	while (true) {
 
 		uint32_t statement;
-		if (parseStatement(r_statements, i, statement)) {
+		if (parseStatement(r_statements, r_statements, i, statement)) {
 
 			if (skipToSymbolToken(i, ";", new_i)) {
 
@@ -866,7 +871,7 @@ bool Parser::parseStatements(uint32_t parent_node_index, uint32_t& i,
 				if (first == true) {
 
 					auto statements = getBaseNode(r_statements);
-					statements->start_pos = getBaseNode(statement)->start_pos;
+					statements->selection.start = getBaseNode(statement)->selection.start;
 
 					first = false;
 				}
@@ -874,7 +879,7 @@ bool Parser::parseStatements(uint32_t parent_node_index, uint32_t& i,
 				if (skipToSymbolToken(i, "}", new_i)) {
 
 					auto statements = getBaseNode(r_statements);
-					statements->end_pos = getToken(i);
+					statements->setEnd(getToken(i));
 					return true;
 				}
 			}
@@ -893,8 +898,7 @@ bool Parser::parseFunctionImplementation(uint32_t parent_node_index, uint32_t& i
 	uint32_t& r_node_index)
 {
 	{
-		addNode<AST_FunctionDefinition>(r_node_index);
-		linkParentAndChild(parent_node_index, r_node_index);
+		addNode<AST_FunctionDefinition>(parent_node_index, r_node_index);
 	}
 
 	if (skipToIdentifierToken(i)) {
@@ -1071,21 +1075,29 @@ bool Parser::isSimpleName(uint32_t token_index)
 
 void Parser::parseFile(std::vector<uint8_t>& file_bytes, std::string file_path)
 {	
-	lexer.lexFile(file_bytes, file_path);
-	// lexer.print(true);
+	lexer.lexFile(file_bytes);
 
-	uint32_t root_node_index;
-	addNode<AST_SourceFile>(root_node_index);
+	{
+		//LexerPrintSettings settings;
+		//settings.show_selection = true;
+		//lexer.print(settings);
+		//return;
+	}
+
+	AST_NodeIndex root_node_index;
+	auto* source_file = addNode<AST_SourceFile>(0, root_node_index);
+	source_file->file_path = file_path;
 
 	uint32_t i = 0;
 	uint32_t child_node_index;
 
-	if (parseStatements(root_node_index, i, child_node_index) == false) {
+	if (parseStatements(root_node_index, root_node_index, i, child_node_index) == false) {
 
 		printf("\nErrors: \n");
 
 		for (auto& error : errors) {
-			printf("(%d, %d) %s \n", error.line, error.column, error.msg.c_str());
+			printf("(%d, %d) %s \n",
+				error.selection.start.line, error.selection.start.column, error.msg.c_str());
 		}
 	}
 }
@@ -1096,9 +1108,7 @@ void Parser::error(std::string msg, uint32_t token_index)
 
 	CompilerMessage& new_err = errors.emplace_back();
 	new_err.msg = msg;
-
-	new_err.line = token.line;
-	new_err.column = token.column;
+	new_err.selection = token;
 }
 
 void Parser::errorUnexpectedToken(std::string msg, uint32_t token_index)
@@ -1119,10 +1129,10 @@ void Parser::_printTree(uint32_t node_idx, uint32_t depth, PrintAST_TreeSettings
 		printf("%d ", node_idx);
 	}
 
-	if (settings.show_source_ranges) {
+	if (settings.show_code_selections) {
 		printf("{%d %d, %d %d} ",
-			node->start_pos.line, node->start_pos.column,
-			node->end_pos.line, node->end_pos.column
+			node->selection.start.line, node->selection.start.column,
+			node->selection.end.line, node->selection.end.column
 		);
 	}
 

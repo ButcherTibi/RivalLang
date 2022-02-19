@@ -7,6 +7,10 @@
 using namespace std::string_literals;
 
 
+struct Token;
+class Lexer;
+
+
 enum class TokenTypes {
 	IDENTIFIER,
 
@@ -35,21 +39,29 @@ enum class TokenTypes {
 std::string toStringTokenTypes(TokenTypes token_type);
 
 
+struct SourceCodePosition {
+	uint32_t line;
+	uint32_t column;
+};
+
+struct CodeSelection {
+	SourceCodePosition start;
+	SourceCodePosition end;
+
+	void operator=(const Token&);
+};
+
 struct Token {
 	TokenTypes type;
 
-	uint32_t start;
-	uint32_t length;
-
-	uint32_t line;
-	uint32_t column;
+	CodeSelection selection;
 
 	std::string value;
 
 public:
-	void end(uint32_t i_to_next_token);
-	void end(std::vector<uint8_t>& bytes, uint32_t i_to_next_token);
-	void endSuffixedLiteral(std::vector<uint8_t>& bytes, uint32_t end_i, uint32_t suffix_length);
+	void start(const Lexer*);
+	void end(const Lexer*);
+	void assign(const Lexer*, uint32_t start_end, uint32_t end_index);
 
 	bool isSpacing();
 	bool isNumberLike();
@@ -58,11 +70,13 @@ public:
 	bool isExpressionSign();
 };
 
+struct LexerPrintSettings {
+	bool ignore_spacing = true;
+	bool show_selection = false;
+};
 
 class Lexer {
 public:
-	std::string file_path;
-
 	// bytes of the file
 	std::vector<uint8_t> bytes;
 	
@@ -107,8 +121,8 @@ public:
 	// everything, must put this last
 	void lexSymbol();
 
-	void lexFile(std::vector<uint8_t>& file_bytes, std::string& file_path);
+	void lexFile(std::vector<uint8_t>& file_bytes);
 
 
-	void print(bool ignore_spacing = false);
+	void print(LexerPrintSettings settings = LexerPrintSettings());
 };

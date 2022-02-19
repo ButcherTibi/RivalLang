@@ -4,6 +4,7 @@
 #include <variant>
 #include <typeinfo>
 #include <unordered_map>
+#include <map>
 
 // Mine
 #include "Lexer/Lexer.hpp"
@@ -12,30 +13,41 @@
 typedef uint32_t AST_NodeIndex;
 
 
-struct SourceCodePosition {
-	uint32_t line;
-	uint32_t column;
-
-	void operator=(const Token&);
-};
-
 // Base class for all abstract syntax tree nodes, never used on its own
 struct AST_BaseNode {
 	uint32_t parent = 0xFFFF'FFFF;
 	std::vector<uint32_t> children;
 
-	SourceCodePosition start_pos;
-	SourceCodePosition end_pos;
+	CodeSelection selection;
+
+	void setStart(const Token&);
+	void setEnd(const Token&);
 
 	virtual std::string toString() {
-		return "Node";
+		return "AST_Node";
 	};
 };
+
+//struct AST_Context {
+//	AST_NodeIndex parent;
+//	AST_NodeIndex scope;
+//};
 
 
 // Code Spliting ////////////////////////////////////////////////////////////////////
 
-struct AST_SourceFile : AST_BaseNode {
+struct AST_Root : AST_BaseNode {
+
+};
+
+// anything that can hold type or var declarations
+struct AST_Scope : AST_BaseNode {
+	std::vector<AST_NodeIndex> var_decl;
+};
+
+struct AST_SourceFile : AST_Scope {
+	std::string file_path;
+
 	std::string toString() override;
 };
 
@@ -55,9 +67,7 @@ struct AST_BinaryOperator : AST_BaseNode {
 	void assign(const Token& new_token)
 	{
 		this->token = new_token;
-		this->start_pos = new_token;
-		this->end_pos.line = new_token.line;
-		this->end_pos.column = new_token.column + 1;
+		this->selection = new_token;
 	}
 
 	std::string toString() override {
@@ -80,6 +90,10 @@ struct AST_VariableDeclaration : AST_BaseNode {
 	AST_NodeIndex type;
 	AST_NodeIndex default_expr;
 
+	// Type Check
+	/*ScopeNodeIndex declared_type;
+	ScopeNodeIndex assigned_type;*/
+
 public:
 	std::string toString() override;
 };
@@ -99,6 +113,7 @@ struct AST_VariableAssignment : AST_BaseNode {
 
 // Function /////////////////////////////////////////////////////////////////////////
 
+// TODO: not used
 struct AST_FunctionDefinition : AST_BaseNode {
 	uint32_t name_token;
 	std::vector<uint32_t> param_nodes;
@@ -116,10 +131,7 @@ struct AST_FunctionCall : AST_BaseNode {
 
 // Stuff that lives inside a function and can be executed
 // It's children are a mix of assignments, declarations and function calls
-struct AST_Statements : AST_BaseNode {
-
-	// variable declarations
-};
+struct AST_Statements : AST_Scope {};
 
 
 // Type ////////////////////////////////////////////////////////////////////////////
@@ -134,6 +146,8 @@ struct AST_Type : AST_BaseNode {
 //////////////////////////////////////////////////////////////////////////////////
 
 typedef std::variant<
+	AST_Root,
+
 	// Code Spliting
 	AST_SourceFile,
 
@@ -161,16 +175,13 @@ typedef std::variant<
 struct CompilerMessage {
 	std::string msg;
 
-	// @HERE
-	uint32_t line;
-	uint32_t column;
+	CodeSelection selection;
 };
 
 struct PrintAST_TreeSettings {
 	bool show_node_index = false;
-	bool show_source_ranges = false;
+	bool show_code_selections = false;
 };
-
 
 class Parser {
 public:
@@ -180,6 +191,8 @@ public:
 	std::vector<CompilerMessage> errors;
 
 public:
+
+	void init();
 
 	/* Utility functions */
 	Token& getToken(uint32_t token_index);
@@ -218,6 +231,10 @@ public:
 	AST_BaseNode* getBaseNode(uint32_t node_idx);
 
 	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
+
+	/* Scope */
+
+	AST_Scope* getScope(AST_NodeIndex ast_scope_idx);
 
 
 	/* Seek Functions */
@@ -288,9 +305,9 @@ public:
 	/* Variable */
 
 	// a variable declaration is defined as the combination of a simple indetifier for the name and
-	// a another identifier acting as the type
-	bool parseVariableDeclaration(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	// a another identifier acting as the ast_type
+	bool parseVariableDeclaration(AST_NodeIndex parent_node_index, AST_NodeIndex scope, uint32_t& token_index,
+		AST_NodeIndex& r_child_node_index);
 
 	// assignment is defined as a complex name and the `=` sign
 	bool parseVariableAssignment(uint32_t parent_node_index, uint32_t& token_index,
@@ -299,26 +316,22 @@ public:
 
 	/* Function */
 
-	// parse stuff inside function body, stuff that can be executed
-	/*bool parseStatements(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);*/
-
 	bool parseFunctionImplementation(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
 	bool parseFunctionCall(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
-	bool parseStatement(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	bool parseStatement(AST_NodeIndex ast_parent, AST_NodeIndex parent_scope, uint32_t& token_index,
+		AST_NodeIndex& r_statement);
 
-	bool parseStatements(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	bool parseStatements(AST_NodeIndex ast_parent, AST_NodeIndex parent_scope, uint32_t& token_index,
+		AST_NodeIndex& r_statements);
 
 
 	/* Type */
 
-	// parse the type in stuff like variable declarations, function parameters
+	// parse the ast_type in stuff like variable declarations, function parameters
 	bool parseType(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
@@ -344,56 +357,13 @@ public:
 };
 
 
-typedef uint32_t TypeNodeIndex;
-
-
-struct VariableDeclaration {
-	uint32_t node;
-
-	std::unordered_map<std::string, uint32_t> children;
-};
-
-struct TypeNode {
-	TypeNodeIndex parent;
-	std::unordered_map<std::string, TypeNodeIndex> children;
-
-	// the AST_Node that triggered this type declaration to facilitate code navigation
-	AST_NodeIndex ast_node;
-	std::string name;
-};
-
-class TypeStuff {
+class SourceFileMerger {
 public:
-	Parser parser;
-
-	std::vector<VariableDeclaration> variables;
-	std::vector<TypeNode> types;
-
-	TypeNode* i32_type;
-	TypeNode* f32_type;
+	std::vector<AST_Node> nodes;
 
 public:
 
-	TypeNode& addType(TypeNodeIndex parent_node, AST_NodeIndex ast_node, const std::string& name)
-	{
-		TypeNode& parent = types[parent_node];
-		parent.children.insert({ name, this->types.size() });
-
-		TypeNode& new_type = this->types.emplace_back();
-		new_type.parent = parent_node;
-		new_type.ast_node = ast_node;
-		new_type.name = name;
-
-		return new_type;
-	}
-
-	TypeNode& addType(TypeNodeIndex parent_node, AST_NodeIndex ast_node, const char* name)
-	{
-		std::string str = name;
-		return addType(parent_node, ast_node, str);
-	}
-
-	std::string toString(TypeNode* type)
+	/*std::string toString(TypeNode* type)
 	{
 		std::string result = type->name;
 		TypeNodeIndex type_node_index = type->parent;
@@ -407,12 +377,12 @@ public:
 		}
 
 		return result;
-	}
+	}*/
 
-	bool isCompatible(TypeNode* left, TypeNode* right)
+	/*bool isCompatible(TypeNodeIndex left, TypeNodeIndex right)
 	{
-		TypeNode* a = left;
-		TypeNode* b = right;
+		TypeNode* a = &types[left];
+		TypeNode* b = &types[right];
 
 		while (true) {
 
@@ -430,107 +400,149 @@ public:
 
 		throw std::exception();
 		return true;
-	}
-
-	/*TypeNode* findType(TypeNode* context, AST_NodeIndex ast_type)
-	{
-		 
 	}*/
 
-	void errorBinaryOperatorIncompatibleTypes(AST_BinaryOperator binary_op, TypeNode* a, TypeNode* b)
-	{
-		CompilerMessage& new_error = parser.errors.emplace_back();
-		new_error.msg = "Incompatible operand types: \n";
-		new_error.msg += "  " + toString(a) + "\n";
-		new_error.msg += "  " + toString(b) + "\n";
-		new_error.msg += "For operator: " + binary_op.toString() + "\n";
-		new_error.line = binary_op.start_pos.line;
-		new_error.column = binary_op.start_pos.column;
-	}
+	//uint32_t findType(Parser& parser, Scope* scope, AST_NodeIndex ast_type_idx)
+	//{
+	//	auto* ast_type = parser.getNode<AST_Type>(ast_type_idx);
 
-	bool typeCheckExpression(AST_NodeIndex ast_node_index, TypeNode*& r_type)
-	{
-		AST_Node& ast_node = parser.nodes[ast_node_index];
+	//	// normal type
+	//	if (ast_type->children.size() == 0) {
 
-		if (std::holds_alternative<AST_Literal>(ast_node)) {
+	//		std::string& type_name = ast_type->name.value;
 
-			auto& literal = std::get<AST_Literal>(ast_node);
+	//		auto iter = scope->children.find(type_name);
 
-			switch (literal.token.type) {
-			case TokenTypes::i32: {
-				r_type = i32_type;
-				return true;
-			}
-			case TokenTypes::f32: {
-				r_type = f32_type;
-				return true;
-			}
-			default:
-				throw;
-			}
-		}
-		// Type check binary operand
-		else if (std::holds_alternative<AST_BinaryOperator>(ast_node)) {
+	//		if (iter != scope->children.end()) {
 
-			auto& binary_op = std::get<AST_BinaryOperator>(ast_node);
-			
-			TypeNode* left_type;
-			if (typeCheckExpression(binary_op.children[0], left_type) == false) {
-				return false;
-			}
+	//			return iter->second;
+	//		}
+	//		else {
+	//			if (scope->parent != 0xFFFF'FFFF) {
+	//				return findType(parser, &parser.scopes[scope->parent], ast_type_idx);
+	//			}
+	//			else {
+	//				return 0xFFFF'FFFF;
+	//			}
+	//		}
+	//	}
+	//	// template
+	//	else {
+	//		throw;
+	//		return 0xFFFF'FFFF;
+	//	}
+	//}
 
-			TypeNode* right_type;
-			if (typeCheckExpression(binary_op.children[1], right_type) == false) {
-				return false;
-			}
+	//void errorBinaryOperatorIncompatibleTypes(AST_BinaryOperator binary_op, TypeNode* a, TypeNode* b)
+	//{
+	//	CompilerMessage& new_error = parser.errors.emplace_back();
+	//	new_error.msg = "Incompatible operand types: \n";
+	//	new_error.msg += "  " + toString(a) + "\n";
+	//	new_error.msg += "  " + toString(b) + "\n";
+	//	new_error.msg += "For operator: " + binary_op.toString() + "\n";
+	//	new_error.line = binary_op.start_pos.line;
+	//	new_error.column = binary_op.start_pos.column;
+	//}
 
-			if (isCompatible(left_type, right_type) == false) {
-				errorBinaryOperatorIncompatibleTypes(binary_op, left_type, right_type);
-			}
+	//bool _typeCheckExpression(Parser& parser, Scope* scope, AST_NodeIndex ast_node_index)
+	//{
+	//	AST_Node& ast_node = parser.nodes[ast_node_index];
 
-			r_type = left_type;
-			return true;
-		}
-		else {
-			throw;
-		}
-	}
+	//	if (std::holds_alternative<AST_Literal>(ast_node)) {
 
-	void typeCheckFile()
-	{
-		{
-			auto& root_var = variables.emplace_back();
-			root_var.node = 0;
+	//		auto& literal = std::get<AST_Literal>(ast_node);
 
-			auto& root_type = types.emplace_back();
-			root_type.parent = 0xFFFF'FFFF;
+	//		switch (literal.token.type) {
+	//		case TokenTypes::i32: {
+	//			r_type = i32_type;
+	//			return true;
+	//		}
+	//		case TokenTypes::f32: {
+	//			r_type = f32_type;
+	//			return true;
+	//		}
+	//		default:
+	//			throw;
+	//		}
+	//	}
+	//	// Type check binary operand
+	//	else if (std::holds_alternative<AST_BinaryOperator>(ast_node)) {
 
-			i32_type = &addType(0, 0xFFFF'FFFF, "i32");
-			f32_type = &addType(0, 0xFFFF'FFFF, "f32");
-		}
+	//		auto& binary_op = std::get<AST_BinaryOperator>(ast_node);
+	//		
+	//		uint32_t left_type;
+	//		if (_typeCheckExpression(binary_op.children[0], left_type) == false) {
+	//			return false;
+	//		}
 
-		std::vector<AST_NodeIndex> now_nodes;
-		std::vector<AST_NodeIndex> next_nodes;
+	//		uint32_t right_type;
+	//		if (_typeCheckExpression(binary_op.children[1], right_type) == false) {
+	//			return false;
+	//		}
 
-		TypeNode* context_type = &types[0];
+	//		/*if (isCompatible(left_type, right_type) == false) {
+	//			errorBinaryOperatorIncompatibleTypes(binary_op,
+	//				&types[left_type],
+	//				&types[right_type]
+	//			);
+	//		}*/
 
-		while (next_nodes.size()) {
+	//		r_type = left_type;
+	//		return true;
+	//	}
+	//	else {
+	//		throw;
+	//	}
+	//}
 
-			for (auto now_node : now_nodes) {
+	//bool typeCheckExpression(Parser& parser, Scope* scope, AST_NodeIndex ast_expression_idx)
+	//{
+	//	auto* ast_expression = parser.getNode<AST_Expression>(ast_expression_idx);
 
-				AST_Node& now = parser.nodes[now_node];
+	//	return _typeCheckExpression(parser, scope, ast_expression->children[0]);
+	//}
 
-				if (std::holds_alternative<AST_VariableDeclaration>(now)) {
+	//bool typeCheckStatements(Parser& parser, Scope* statements_scope)
+	//{
+	//	auto* statements = parser.getNode<AST_Statements>(statements_scope->ast_node);
 
-					auto var_decl = parser.getNode<AST_VariableDeclaration>(now_node);
+	//	for (AST_NodeIndex child_node_index : statements->children) {
 
+	//		AST_Node& child = parser.nodes[child_node_index];
 
-					if (var_decl->default_expr != 0xFFFF'FFFF) {
+	//		if (std::holds_alternative<AST_VariableDeclaration>(child)) {
 
-						auto default_expr = parser.getNode<AST_Expression>(var_decl->default_expr);
-					}
-				}
-			}
-		}
-	}
+	//			auto var_decl = std::get_if<AST_VariableDeclaration>(&child);
+	//			var_decl->declared_type = findType(parser, statements_scope, var_decl->type);
+
+	//			if (var_decl->default_expr != 0xFFFF'FFFF) {
+
+	//				auto default_expr = parser.getNode<AST_Expression>(var_decl->default_expr);
+
+	//				if (typeCheckExpression(var_decl->default_expr, var_decl->assigned_type)) {
+	//					// it's fine
+	//				}
+	//				else {
+
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+
+	//bool typeCheckFile(Parser& parser)
+	//{
+	//	auto* ast_file = parser.getNode<AST_SourceFile>(0);
+
+	//	for (AST_NodeIndex child_node_index : ast_file->children) {
+
+	//		AST_Node& child = parser.nodes[child_node_index];
+
+	//		if (std::holds_alternative<AST_Statements>(child)) {
+
+	//			auto* statements = parser.getNode<AST_Statements>(child_node_index);
+	//			typeCheckStatements(context, statements);
+	//		}
+	//	}
+	//}
 };

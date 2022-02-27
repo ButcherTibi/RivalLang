@@ -1,44 +1,8 @@
 
-var_name f32 = 10 0 + 20 0u + 30 0I + 40 0U + 50 0f + 60 0F +
-	0b1101 0011 + 0xFFFF FFFF;
+main() {
+	var_0 u64;
+	var_0 = 1.0;
 
-var_name u64;
-var_name = 1.0;
-
+	var_1 string;
+	var_1 = "text";
 }
-
-function_call( 1 + 1, "foo" ) ;
-namespace.class.method(1 + 1, "bar");
-
-namespace.class.variable = 1 + 1 * "assignment";
-
-var_name Type = 1 * 2 + 3 + ("foo" + "bar");
-var_name Type = 1 + 2 + 3 * 4 * 5 + 6 * 9;
-var_name T<T1, T2> = 1 + 1;
-
-
-namespace io {
-
-	max_path_length u64;
-
-	class File {
-		handle u64;
-		
-		read()
-		{
-			local_var u64;
-		}
-	}
-	
-	class Folder {
-		path string;
-
-		rename()
-		{
-			new_name string;
-		}
-	}
-}
-
-Types:
-

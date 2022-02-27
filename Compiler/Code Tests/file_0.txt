@@ -1,0 +1,10 @@
+
+globar_var_name u32;
+
+class ClassName {
+
+}
+
+functionName () {
+	
+}

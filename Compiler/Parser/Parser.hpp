@@ -7,16 +7,17 @@
 #include <map>
 
 // Mine
-#include "Lexer/Lexer.hpp"
+#include "../Lexer/Lexer.hpp"
 
 
 typedef uint32_t AST_NodeIndex;
+typedef uint32_t DeclNodeIndex;
 
 
 // Base class for all abstract syntax tree nodes, never used on its own
 struct AST_BaseNode {
-	uint32_t parent = 0xFFFF'FFFF;
-	std::vector<uint32_t> children;
+	AST_NodeIndex parent = 0xFFFF'FFFF;
+	std::vector<AST_NodeIndex> children;
 
 	CodeSelection selection;
 
@@ -28,25 +29,17 @@ struct AST_BaseNode {
 	};
 };
 
-//struct AST_Context {
-//	AST_NodeIndex parent;
-//	AST_NodeIndex scope;
-//};
-
 
 // Code Spliting ////////////////////////////////////////////////////////////////////
 
 struct AST_Root : AST_BaseNode {
-
+	std::string toString() override;
 };
 
-// anything that can hold type or var declarations
-struct AST_Scope : AST_BaseNode {
-	std::vector<AST_NodeIndex> var_decl;
-};
-
-struct AST_SourceFile : AST_Scope {
+struct AST_SourceFile : AST_BaseNode {
 	std::string file_path;
+
+	DeclNodeIndex decl_node;
 
 	std::string toString() override;
 };
@@ -85,27 +78,27 @@ struct AST_Literal : AST_BaseNode {
 // Variable /////////////////////////////////////////////////////////////////////////
 
 struct AST_VariableDeclaration : AST_BaseNode {
-	Token name_token;  // name of the variable
+	Token name;  // name of the variable
 
 	AST_NodeIndex type;
 	AST_NodeIndex default_expr;
 
-	// Type Check
-	/*ScopeNodeIndex declared_type;
-	ScopeNodeIndex assigned_type;*/
+	DeclNodeIndex decl_node;
 
 public:
 	std::string toString() override;
 };
 
 struct AST_Variable : AST_BaseNode {
-	std::vector<Token> name_tokens;  // name of the variable
+	std::vector<Token> address;  // name of the variable
 
 	std::string toString() override;
 };
 
 struct AST_VariableAssignment : AST_BaseNode {
-	std::vector<Token> name_tokens;  // name of the variable
+	std::vector<Token> address;  // name of the variable
+
+	DeclNodeIndex decl_node;
 
 	std::string toString() override;
 };
@@ -113,16 +106,21 @@ struct AST_VariableAssignment : AST_BaseNode {
 
 // Function /////////////////////////////////////////////////////////////////////////
 
-// TODO: not used
-struct AST_FunctionDefinition : AST_BaseNode {
-	uint32_t name_token;
-	std::vector<uint32_t> param_nodes;
-	uint32_t return_node;
-	std::vector<uint32_t> modifiers_tokens;
+struct AST_FunctionImplementation : AST_BaseNode {
+	std::vector<Token> name;
+	std::vector<AST_NodeIndex> params;
+	AST_NodeIndex returns;
+	std::vector<Token> modifiers;
+	AST_NodeIndex statements;
+
+	DeclNodeIndex decl_node;
+
+public:
+	std::string toString() override;
 };
 
 struct AST_FunctionCall : AST_BaseNode {
-	std::vector<Token> name_tokens;
+	std::vector<Token> address;
 	std::vector<Token> modifiers_tokens;
 	// arguments will be the child expression nodes
 
@@ -131,7 +129,9 @@ struct AST_FunctionCall : AST_BaseNode {
 
 // Stuff that lives inside a function and can be executed
 // It's children are a mix of assignments, declarations and function calls
-struct AST_Statements : AST_Scope {};
+struct AST_Statements : AST_BaseNode {
+	std::string toString() override;
+};
 
 
 // Type ////////////////////////////////////////////////////////////////////////////
@@ -140,6 +140,14 @@ struct AST_Type : AST_BaseNode {
 	Token name;
 
 	std::string toString() override;
+};
+
+struct AST_TypeDeclaration : AST_BaseNode {
+	Token name;
+};
+
+struct AST_Declarations : AST_BaseNode {
+
 };
 
 
@@ -163,13 +171,31 @@ typedef std::variant<
 	AST_VariableAssignment,
 
 	// Function
-	AST_FunctionDefinition,
+	AST_FunctionImplementation,
 	AST_FunctionCall,
 	AST_Statements,
 
 	// Type
-	AST_Type
+	AST_Type,
+	AST_TypeDeclaration,
+	AST_Declarations
 > AST_Node;
+
+
+enum class ScopeType {
+	DECLARATIONS,  // order independent
+	STATEMENTS,  // order dependent
+	NO_SCOPE  // does not restrict lookup
+};
+
+struct DeclarationNode {
+	DeclNodeIndex parent;
+	std::vector<DeclNodeIndex> children;
+
+	AST_NodeIndex ast_node;
+	std::string name;
+	ScopeType scope_type;  // not used
+};
 
 
 struct CompilerMessage {
@@ -183,10 +209,19 @@ struct PrintAST_TreeSettings {
 	bool show_code_selections = false;
 };
 
+struct DeclarationStack {
+	DeclNodeIndex decl_node_idx;
+	uint32_t stack_pos;
+};
+
 class Parser {
 public:
 	Lexer lexer;
 	std::vector<AST_Node> nodes;
+
+	// Resolve
+	std::vector<DeclarationNode> decls;
+	std::vector<DeclarationStack> stacks;
 
 	std::vector<CompilerMessage> errors;
 
@@ -231,10 +266,6 @@ public:
 	AST_BaseNode* getBaseNode(uint32_t node_idx);
 
 	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
-
-	/* Scope */
-
-	AST_Scope* getScope(AST_NodeIndex ast_scope_idx);
 
 
 	/* Seek Functions */
@@ -288,11 +319,6 @@ public:
 	void parseModifiers(uint32_t& token_index, std::vector<Token>& r_modifiers);
 
 
-	/* Code Spliting */
-
-	void parseFile(std::vector<uint8_t>& file_bytes, std::string file_path);
-
-
 	/* Expression */
 
 	bool _parseExpression(uint32_t& token_index, int32_t parent_precedence,
@@ -306,7 +332,7 @@ public:
 
 	// a variable declaration is defined as the combination of a simple indetifier for the name and
 	// a another identifier acting as the ast_type
-	bool parseVariableDeclaration(AST_NodeIndex parent_node_index, AST_NodeIndex scope, uint32_t& token_index,
+	bool parseVariableDeclaration(AST_NodeIndex parent_node_index, uint32_t& token_index,
 		AST_NodeIndex& r_child_node_index);
 
 	// assignment is defined as a complex name and the `=` sign
@@ -316,16 +342,16 @@ public:
 
 	/* Function */
 
-	bool parseFunctionImplementation(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	bool parseFunctionImplementation(AST_NodeIndex parent_node, uint32_t& token_index,
+		AST_NodeIndex& r_func_impl);
 
 	bool parseFunctionCall(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
-	bool parseStatement(AST_NodeIndex ast_parent, AST_NodeIndex parent_scope, uint32_t& token_index,
+	bool parseStatement(AST_NodeIndex ast_parent, uint32_t& token_index,
 		AST_NodeIndex& r_statement);
 
-	bool parseStatements(AST_NodeIndex ast_parent, AST_NodeIndex parent_scope, uint32_t& token_index,
+	bool parseStatements(AST_NodeIndex ast_parent, uint32_t& token_index,
 		AST_NodeIndex& r_statements);
 
 
@@ -334,6 +360,10 @@ public:
 	// parse the ast_type in stuff like variable declarations, function parameters
 	bool parseType(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
+
+	// @HERE: parseDeclarations
+	bool parseDeclarations(AST_NodeIndex ast_parent, uint32_t& token_index,
+		AST_NodeIndex& r_declarations);
 
 
 	/* Check functions */
@@ -350,16 +380,46 @@ public:
 	void errorUnexpectedToken(std::string error_mesage, uint32_t token_index);
 
 
+	/* Parser API */
+
+	void parseFile(std::vector<uint8_t>& file_bytes, std::string file_path);
+
+
+	/* Resolve */
+
+	DeclarationNode* addDeclaration(DeclNodeIndex parent_scope, DeclNodeIndex& r_new_scope);
+	DeclarationNode* addDeclaration(DeclNodeIndex parent_scope);
+	DeclarationNode* getParentDeclaration();
+	DeclarationStack* addDeclarationStack(DeclNodeIndex decl_node_idx);
+
+	void gatherUnorderedDeclarations(DeclNodeIndex parent_scope, AST_NodeIndex ast_parent_idx);
+
+	DeclNodeIndex resolveAdress(std::vector<Token>& address);
+
+	bool resolveStatements(AST_NodeIndex ast_node);
+
+	bool resolveFunctionImplementation(AST_NodeIndex ast_node);
+
+	bool resolve();
+
+	// bool typeCheck();
+
+
 	/* Debug */
 	void _printTree(uint32_t node_idx, uint32_t depth, PrintAST_TreeSettings&);
-	void printTree(PrintAST_TreeSettings settings = PrintAST_TreeSettings());
+	void printAST(PrintAST_TreeSettings settings = PrintAST_TreeSettings());
 	void printNodes(uint32_t start_index = 0, uint32_t end_index = 0xFFFF'FFFF);
+
+	void _printScopes(DeclNodeIndex scope_idx, uint32_t depth);
+	void printDeclarations();
 };
 
 
-class SourceFileMerger {
+ 
+
+class TypeChecker {
 public:
-	std::vector<AST_Node> nodes;
+	
 
 public:
 
@@ -402,7 +462,7 @@ public:
 		return true;
 	}*/
 
-	//uint32_t findType(Parser& parser, Scope* scope, AST_NodeIndex ast_type_idx)
+	//uint32_t findType(Parser& parser, DeclarationNode* scope, AST_NodeIndex ast_type_idx)
 	//{
 	//	auto* ast_type = parser.getNode<AST_Type>(ast_type_idx);
 
@@ -419,7 +479,7 @@ public:
 	//		}
 	//		else {
 	//			if (scope->parent != 0xFFFF'FFFF) {
-	//				return findType(parser, &parser.scopes[scope->parent], ast_type_idx);
+	//				return findType(parser, &parser.decls[scope->parent], ast_type_idx);
 	//			}
 	//			else {
 	//				return 0xFFFF'FFFF;
@@ -444,7 +504,7 @@ public:
 	//	new_error.column = binary_op.start_pos.column;
 	//}
 
-	//bool _typeCheckExpression(Parser& parser, Scope* scope, AST_NodeIndex ast_node_index)
+	//bool _typeCheckExpression(Parser& parser, DeclarationNode* scope, AST_NodeIndex ast_node_index)
 	//{
 	//	AST_Node& ast_node = parser.nodes[ast_node_index];
 
@@ -495,14 +555,14 @@ public:
 	//	}
 	//}
 
-	//bool typeCheckExpression(Parser& parser, Scope* scope, AST_NodeIndex ast_expression_idx)
+	//bool typeCheckExpression(Parser& parser, DeclarationNode* scope, AST_NodeIndex ast_expression_idx)
 	//{
 	//	auto* ast_expression = parser.getNode<AST_Expression>(ast_expression_idx);
 
 	//	return _typeCheckExpression(parser, scope, ast_expression->children[0]);
 	//}
 
-	//bool typeCheckStatements(Parser& parser, Scope* statements_scope)
+	//bool typeCheckStatements(Parser& parser, DeclarationNode* statements_scope)
 	//{
 	//	auto* statements = parser.getNode<AST_Statements>(statements_scope->ast_node);
 

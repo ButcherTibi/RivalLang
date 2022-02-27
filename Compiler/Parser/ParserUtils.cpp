@@ -17,13 +17,27 @@ void AST_BaseNode::setEnd(const Token& token)
 
 void Parser::init()
 {
-	AST_Root& root = nodes.emplace_back().emplace<AST_Root>();
-	root.parent = 0xFFFF'FFFF;
+	{
+		AST_Root& root = nodes.emplace_back().emplace<AST_Root>();
+		root.parent = 0xFFFF'FFFF;
+	}
+
+	{
+		DeclarationNode& root = decls.emplace_back();
+		root.ast_node = 0;
+		root.name = "global";
+		root.scope_type = ScopeType::DECLARATIONS;
+	}
 }
 
 Token& Parser::getToken(uint32_t token_index)
 {
 	return lexer.tokens[token_index];
+}
+
+std::string AST_Root::toString()
+{
+	return "AST_Root";
 }
 
 std::string AST_SourceFile::toString()
@@ -46,9 +60,9 @@ std::string AST_Variable::toString()
 {
 	std::string str = std::string("Variable name = ");
 
-	for (Token& name : name_tokens) {
+	for (Token& name : address) {
 
-		if (&name != &name_tokens.back()) {
+		if (&name != &address.back()) {
 			str.append(name.value + std::string("."));
 		}
 		else {
@@ -63,9 +77,9 @@ std::string AST_VariableAssignment::toString()
 {
 	std::string str = std::string("Variable Assignment name = ");
 
-	for (Token& name : name_tokens) {
+	for (Token& name : address) {
 
-		if (&name != &name_tokens.back()) {
+		if (&name != &address.back()) {
 			str.append(name.value + std::string("."));
 		}
 		else {
@@ -78,7 +92,24 @@ std::string AST_VariableAssignment::toString()
 
 std::string AST_VariableDeclaration::toString()
 {
-	std::string str = std::string("Variable Decl name = ") + name_token.value;
+	std::string str = std::string("Variable Decl name = ") + name.value;
+
+	return str;
+}
+
+std::string AST_FunctionImplementation::toString()
+{
+	std::string str = std::string("Function Impl name = ");
+
+	for (Token& n : name) {
+
+		if (&n != &name.back()) {
+			str.append(n.value + std::string("."));
+		}
+		else {
+			str.append(n.value);
+		}
+	}
 
 	return str;
 }
@@ -87,9 +118,9 @@ std::string AST_FunctionCall::toString()
 {
 	std::string str = std::string("Function Call name = ");
 
-	for (Token& name : name_tokens) {
+	for (Token& name : address) {
 
-		if (&name != &name_tokens.back()) {
+		if (&name != &address.back()) {
 			str.append(name.value + std::string("."));
 		}
 		else {
@@ -98,6 +129,11 @@ std::string AST_FunctionCall::toString()
 	}
 
 	return str;
+}
+
+std::string AST_Statements::toString()
+{
+	return "Statements";
 }
 
 AST_BaseNode* Parser::getBaseNode(uint32_t node_idx)
@@ -132,8 +168,8 @@ AST_BaseNode* Parser::getBaseNode(uint32_t node_idx)
 		return std::get_if<AST_VariableAssignment>(&node);
 	}
 	// Function
-	else if (std::holds_alternative<AST_FunctionDefinition>(node)) {
-		return std::get_if<AST_FunctionDefinition>(&node);
+	else if (std::holds_alternative<AST_FunctionImplementation>(node)) {
+		return std::get_if<AST_FunctionImplementation>(&node);
 	}
 	else if (std::holds_alternative<AST_FunctionCall>(node)) {
 		return std::get_if<AST_FunctionCall>(&node);
@@ -158,26 +194,3 @@ void Parser::linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_
 	AST_BaseNode* child = getBaseNode(child_node_index);
 	child->parent = parent_node_index;
 }
-
-AST_Scope* Parser::getScope(AST_NodeIndex ast_scope_idx)
-{
-	AST_Node& ast_node = nodes[ast_scope_idx];
-
-	if (std::holds_alternative<AST_SourceFile>(ast_node)) {
-		return std::get_if<AST_SourceFile>(&ast_node);
-	}
-	if (std::holds_alternative<AST_Statements>(ast_node)) {
-		return std::get_if<AST_Statements>(&ast_node);
-	}
-
-	throw;
-}
-
-//void Parser::linkScopes(AST_NodeIndex parent_idx, AST_NodeIndex child_idx)
-//{
-//	AST_Scope* parent = getScope(parent_idx);
-//	parent->children.push_back(child_idx);
-//
-//	AST_Scope* child = getScope(child_idx);
-//	child->parent = parent_idx;
-//}

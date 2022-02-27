@@ -7,7 +7,7 @@
 #include "ThirdParty\ButchersToolbox\utf8_string.hpp"
 #include "ThirdParty\ButchersToolbox\Filesys.hpp"
 #include "Lexer/Lexer.hpp"
-#include "Parser.hpp"
+#include "Parser/Parser.hpp"
 
 
 int main(int argument_count, char* argv[])
@@ -47,11 +47,15 @@ int main(int argument_count, char* argv[])
 			Parser parser;
 			parser.init();
 			parser.parseFile(bytes, file_name);
+			parser.resolve();
 
 			printf("\n");
 			PrintAST_TreeSettings settings;
 			settings.show_code_selections = false;
-			parser.printTree(settings);
+			parser.printAST(settings);
+
+			printf("\n");
+			parser.printDeclarations();
 		}
 	}
 

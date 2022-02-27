@@ -98,11 +98,11 @@
     <ClCompile Include="ThirdParty\ButchersToolbox\Filesys.cpp" />
     <ClCompile Include="ThirdParty\ButchersToolbox\utf8_string.cpp" />
     <ClCompile Include="ThirdParty\ButchersToolbox\WindowsSpecific.cpp" />
-    <ClCompile Include="TypeResolution.cpp" />
+    <ClCompile Include="Parser\Resolve.cpp" />
     <ClCompile Include="Lexer\Lexer.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Parser.cpp" />
-    <ClCompile Include="ParserUtils.cpp" />
+    <ClCompile Include="Parser\Parser.cpp" />
+    <ClCompile Include="Parser\ParserUtils.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
@@ -118,10 +118,12 @@
     <ClInclude Include="TypeResolution.hpp" />
     <ClInclude Include="Runtime.hpp" />
     <ClInclude Include="Lexer\Lexer.hpp" />
-    <ClInclude Include="Parser.hpp" />
+    <ClInclude Include="Parser\Parser.hpp" />
     <ClInclude Include="pch.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="Code Tests\file_0.txt" />
+    <Text Include="Code Tests\tests.txt" />
     <Text Include="Code Tests\main.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

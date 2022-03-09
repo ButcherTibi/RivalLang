@@ -3,370 +3,6 @@
 #include "Parser.hpp"
 
 
-bool Parser::seekToSymbolToken(uint32_t& i, std::string symbol_token,
-	std::vector<std::string> not_allowed_symbols, bool allow_identifier)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::SYMBOL) {
-
-			for (std::string& not_allowed_symbol : not_allowed_symbols) {
-
-				if (token.value == not_allowed_symbol) {
-					return false;
-				}
-			}
-
-			if (token.value == symbol_token) {
-				return true;
-			}
-		}
-		else if (token.type == TokenTypes::IDENTIFIER && allow_identifier == false) {
-			return false;
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::seekToSymbolToken(uint32_t& i, std::string symbol_token)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::SYMBOL) {
-
-			if (token.value == symbol_token) {
-				return true;
-			}
-		}
-		else if (token.type == TokenTypes::IDENTIFIER) {
-			// allowed
-		}
-		else {
-			return false;
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToExpressionSymbolToken(uint32_t i, uint32_t& r_token_index)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.isExpressionSign()) {
-
-			r_token_index = i;
-			return true;
-		}
-		else if (token.type == TokenTypes::SPACING) {
-			// allowed
-		}
-		else {
-			r_token_index = i;
-			return false;
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToNumberToken(uint32_t i, uint32_t& r_token_index)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.isNumberLike()) {
-			r_token_index = i;
-			return true;
-		}
-		else if (token.type == TokenTypes::SPACING) {
-			// allowed
-		}
-		else {
-			r_token_index = i;
-			return false;
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToStringToken(uint32_t i, uint32_t& r_token_index)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::STRING) {
-			r_token_index = i;
-			return true;
-		}
-		else if (token.type == TokenTypes::SPACING) {
-			// allowed
-		}
-		else {
-			r_token_index = i;
-			return false;
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToClosingSymbolToken(uint32_t& i,
-	std::string start_symbol_token, std::string end_symbol_token)
-{
-	uint32_t start = i;
-	uint32_t balance = 0;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::SYMBOL) {
-
-			if (token.value == start_symbol_token) {
-				balance++;
-			}
-			else if (token.value == end_symbol_token) {
-				balance--;
-
-				if (balance == 0) {
-					return true;
-				}
-			}
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToSymbolToken(uint32_t& i, std::string target_symbol)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::SYMBOL) {
-			if (token.value == target_symbol) {
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-		else if (token.type != TokenTypes::SPACING) {
-			return false;
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToSymbolToken(uint32_t token_index, std::string target_symbol, uint32_t& r_token_index)
-{
-	r_token_index = token_index;
-	return skipToSymbolToken(r_token_index, target_symbol);
-}
-
-bool Parser::skipPastIdentifiers(uint32_t& i)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::SPACING || token.type == TokenTypes::IDENTIFIER) {
-			i++;
-		}
-		else {
-			return true;
-		}
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipPastCompositeName(uint32_t& i)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		if (skipToIdentifierToken(i)) {
-
-			i++;
-			if (skipToSymbolToken(i, ".")) {
-				i++;
-				continue;
-			}
-		}
-
-		return true;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToIdentifierToken(uint32_t& i)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::IDENTIFIER) {
-			return true;
-		}
-		else if (token.type != TokenTypes::SPACING) {
-			return false;
-		}
-
-		i++;
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::skipToIdentifierToken(uint32_t token_index, uint32_t& r_token_index)
-{
-	r_token_index = token_index;
-	return skipToIdentifierToken(r_token_index);
-}
-
-bool Parser::skipToIdentifierToken(uint32_t& i, std::string target_identifier)
-{
-	uint32_t start = i;
-
-	while (i < lexer.tokens.size()) {
-
-		Token& token = getToken(i);
-
-		if (token.type == TokenTypes::IDENTIFIER) {
-			if (token.value == target_identifier) {
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-		else if (token.type != TokenTypes::SPACING) {
-			return false;
-		}
-	}
-
-	i = start;
-	return false;
-}
-
-bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
-	uint32_t& r_type)
-{
-	auto* type = addNode<AST_Type>(parent_node_index, r_type);
-
-	if (skipToIdentifierToken(i)) {
-
-		type->name = getToken(i);
-		type->setStart(type->name);
-		i++;
-
-		// type has template arguments
-		if (skipToSymbolToken(i, "<")) {
-
-			i++;
-
-			while (true) {
-
-				uint32_t child_node;
-				if (parseType(r_type, i, child_node) == false) {
-					return false;
-				}
-
-				if (skipToSymbolToken(i, ",")) {
-					i++;
-				}
-				else if (skipToSymbolToken(i, ">")) {
-
-					i++;
-
-					type = getNode<AST_Type>(r_type);
-					type->setEnd(getToken(i));
-					return true;
-				}
-				else {
-					errorUnexpectedToken("while looking for template argument", i);
-					return false;
-				}
-			}
-		}
-		else {
-			type = getNode<AST_Type>(r_type);
-			type->setEnd(getToken(i));
-			return true;
-		}
-	}
-	else {
-		errorUnexpectedToken("unexpected symbol while looking for type name", i);
-		return false;
-	}
-
-	__debugbreak();
-}
-
-bool Parser::parseDeclarations(AST_NodeIndex ast_parent, uint32_t& token_index,
-	AST_NodeIndex& r_declarations)
-{
-	addNode<AST_Declarations>(ast_parent, r_declarations);
-
-	return false;
-}
-
 void Parser::parseCompositeName(uint32_t& i, std::vector<Token>& r_name)
 {
 	while (i < lexer.tokens.size()) {
@@ -405,7 +41,16 @@ bool Parser::_parseExpression(uint32_t& i, int32_t parent_precedence,
 		if (skipToIdentifierToken(i, t)) {
 
 			i = t;
-			throw;
+
+			std::vector<Token> adress;
+			parseCompositeName(i, adress);
+
+			/*if (skipToSymbolToken(i, "(")) {
+
+				parseFunctionCall(0, t)
+			}*/
+
+			__debugbreak();
 		}
 		else if (skipToNumberToken(i, t)) {
 
@@ -423,8 +68,7 @@ bool Parser::_parseExpression(uint32_t& i, int32_t parent_precedence,
 		}
 		else if (skipToSymbolToken(i, "(", t)) {
 
-			i = t;
-			i++;
+			i = t + 1;
 			if (_parseExpression(i, 0, result)) {
 
 				if (skipToSymbolToken(i, ")")) {
@@ -442,82 +86,18 @@ bool Parser::_parseExpression(uint32_t& i, int32_t parent_precedence,
 			}
 		}
 		else {
-			throw;
+			__debugbreak();
 		}
 
 		i++;
-
-		//while (result == 0xFFFF'FFFF) {
-		//	
-		//	Token* atom_token = &getToken(i);
-
-		//	switch (atom_token->type) {
-		//	case TokenTypes::i32:
-		//	case TokenTypes::u32:
-		//	case TokenTypes::i64:
-		//	case TokenTypes::u64:
-		//	case TokenTypes::f32:
-		//	case TokenTypes::f64:
-		//	case TokenTypes::number: {
-
-		//		auto num = addNode<AST_Literal>(result);
-		//		num->token = getToken(i);
-		//		break;
-		//	}
-
-		//	case TokenTypes::STRING: {
-		//	
-		//		auto str = addNode<AST_Literal>(result);
-		//		str->token = getToken(i);
-		//		break;
-		//	}
-
-		//	case TokenTypes::SYMBOL: {
-		//		
-		//		if (atom_token->value == "(") {
-
-		//			i++;
-		//			if (_parseExpression(i, 0, result)) {
-
-		//				atom_token = &getToken(i);
-
-		//				if (atom_token->isSymbol(")") == false) {
-
-		//					errorUnexpectedToken("while looking for closing ')' in expression", i);
-		//					return false;
-		//				}
-		//			}
-		//			else {
-		//				return false;
-		//			}
-		//		}
-		//		// end of expression
-		//		else {
-		//			return true;
-		//		}
-		//		break;
-		//	}
-
-		//	case TokenTypes::SPACING: {
-		//		// allowed
-		//		break;
-		//	}
-
-		//	default: {
-		//		__debugbreak();
-		//	}
-		//	}
-
-		//	i++;
-		//}
 	}
 
 	while (true) {
 
-		uint32_t r_token_index;
-		if (skipToExpressionSymbolToken(i, r_token_index)) {
+		uint32_t r_sign;
+		if (skipToExpressionSymbolToken(i, r_sign)) {
 
-			i = r_token_index;
+			i = r_sign;
 
 			Token& sign_token = getToken(i);
 
@@ -658,7 +238,7 @@ bool Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index, uint32_t&
 						return true;
 					}
 					else {
-						error("error in default variable value in variable declaration", i);
+						pushError("Error in default variable value in variable declaration", i);
 						return false;
 					}
 				}
@@ -670,7 +250,7 @@ bool Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index, uint32_t&
 				return true;
 			}
 			else {
-				error("error in variable type in variable declaration", i);
+				pushError("Error in variable type in variable declaration", i);
 				return false;
 			}
 		}
@@ -725,13 +305,15 @@ bool Parser::parseVariableAssignment(uint32_t parent_node_index, uint32_t& i,
 bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, uint32_t& i,
 	AST_NodeIndex& r_func_impl)
 {
-	auto* func_impl = addNode<AST_FunctionImplementation>(parent_node_index, r_func_impl);
-
 	uint32_t new_i;
 
 	if (skipToIdentifierToken(i, new_i)) {
 
 		i = new_i;
+
+		auto* func_impl = addNode<AST_FunctionImplementation>(parent_node_index, r_func_impl);
+		func_impl->setStart(getToken(i));
+
 		parseCompositeName(i, func_impl->name);
 
 		if (skipToSymbolToken(i, "(", new_i)) {
@@ -793,11 +375,14 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, uint32
 			}
 
 			// function body
-			AST_NodeIndex statements;
-			if (parseStatements(r_func_impl, i, statements)) {
+			AST_NodeIndex ast_statements_idx;
+			if (parseStatements(r_func_impl, i, ast_statements_idx)) {
 
 				func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
-				func_impl->statements = statements;
+				func_impl->statements = ast_statements_idx;
+
+				auto* ast_statements = getNode<AST_Statements>(ast_statements_idx);
+				func_impl->selection.end = ast_statements->selection.end;
 				return true;
 			}
 			else {
@@ -990,7 +575,7 @@ bool Parser::parseStatement(AST_NodeIndex parent, uint32_t& i,
 		}
 	}
 	else {
-		error("unrecognized statement", i);
+		pushError("Unrecognized statement", i);
 		return false;
 	}
 }
@@ -1013,17 +598,19 @@ bool Parser::parseStatements(AST_NodeIndex ast_parent_idx, uint32_t& i,
 
 		while (true) {
 
-			uint32_t statement;
-			if (parseStatement(r_statements, i, statement)) {
+			if (skipToSymbolToken(i, "}", new_i)) {
 
-				if (skipToSymbolToken(i, "}", new_i)) {
+				i = new_i;
 
-					auto statements = getNode<AST_Statements>(r_statements);
-					statements->setEnd(getToken(new_i));
-					return true;
-				}
+				auto statements = getNode<AST_Statements>(r_statements);
+				statements->setEnd(getToken(i));
+
+				i++;
+				return true;
 			}
-			else {
+
+			uint32_t statement;
+			if (parseStatement(r_statements, i, statement) == false) {
 				return false;
 			}
 		}
@@ -1033,7 +620,195 @@ bool Parser::parseStatements(AST_NodeIndex ast_parent_idx, uint32_t& i,
 		return false;
 	}
 
-	throw;
+	__debugbreak();
+}
+
+bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
+	uint32_t& r_type)
+{
+	auto* type = addNode<AST_Type>(parent_node_index, r_type);
+
+	if (skipToIdentifierToken(i)) {
+
+		type->name = getToken(i);
+		type->setStart(type->name);
+		i++;
+
+		// type has template arguments
+		if (skipToSymbolToken(i, "<")) {
+
+			i++;
+
+			while (true) {
+
+				uint32_t child_node;
+				if (parseType(r_type, i, child_node) == false) {
+					return false;
+				}
+
+				if (skipToSymbolToken(i, ",")) {
+					i++;
+				}
+				else if (skipToSymbolToken(i, ">")) {
+
+					i++;
+
+					type = getNode<AST_Type>(r_type);
+					type->setEnd(getToken(i));
+					return true;
+				}
+				else {
+					errorUnexpectedToken("while looking for template argument", i);
+					return false;
+				}
+			}
+		}
+		else {
+			type = getNode<AST_Type>(r_type);
+			type->setEnd(getToken(i));
+			return true;
+		}
+	}
+	else {
+		errorUnexpectedToken("unexpected symbol while looking for type name", i);
+		return false;
+	}
+
+	__debugbreak();
+}
+
+bool Parser::parseDeclaration(AST_NodeIndex ast_parent,
+	AST_NodeIndex& r_declaration)
+{
+	if (skipToIdentifier()) {
+
+		uint32_t name_token = token_i;
+
+		if (isAtAdress() == false) {
+
+			advanceToNextToken();
+
+			// variable declaration:
+			// simple_name type_identifier
+			if (skipToIdentifier()) {
+
+				token_i = name_token;
+
+				if (parseVariableDeclaration(ast_parent, token_i, r_declaration)) {
+
+					if (skipToSymbol(";")) {
+						advanceToNextToken();
+						return true;
+					}
+					else {
+						errorUnexpectedToken("while looking for variable declaration end");
+						return false;
+					}
+				}
+				else {
+					return false;
+				}
+			}
+			// function declaration/implementation
+			else if (skipToSymbol("(")) {
+
+				if (skipToClosingSymbol("(", ")")) {
+
+					advanceToNextToken();
+
+					// skip return type and/or modifiers
+					{
+						while (token_i < lexer.tokens.size()) {
+
+							Token& token = getToken();
+
+							if (token.type == TokenTypes::IDENTIFIER ||
+								token.isSymbol("<") || token.isSymbol(">") ||
+								token.type == TokenTypes::SPACING)
+							{
+								advanceToNextToken();
+							}
+							else {
+								break;
+							}
+						}
+					}
+
+					// function implementation
+					// no return type and no modifiere
+					// ex: func_name() {
+					if (skipToSymbol("{")) {
+
+						token_i = name_token;
+
+						if (parseFunctionImplementation(ast_parent, token_i, r_declaration)) {
+							return true;
+						}
+						else {
+							return false;
+						}
+					}
+					// function declaration
+					// no return type and no modifiere
+					// ex. func_name();
+					else if (skipToSymbol(";")) {
+
+						__debugbreak();
+					}
+					else {
+						errorUnexpectedToken(
+							"after function declaration/implementation parameter list");
+						return false;
+					}
+				}
+				else {
+					errorUnexpectedToken(
+						"while looking for closing ')' in function declaration/implementation");
+					return false;
+				}
+			}
+			else {
+				errorUnexpectedToken("after identifier in statement");
+				return false;
+			}
+		}
+		else {
+			// skipPastCompositeName(new_i);
+
+			__debugbreak();
+		}
+	}
+	else {
+		errorUnexpectedToken("while looking for declaration");
+		return false;
+	}
+
+	return false;
+}
+
+bool Parser::parseSourceFile(AST_NodeIndex& r_source_file)
+{
+	addNode<AST_SourceFile>(0, r_source_file);
+
+	this->token_i = 0;
+	this->unexpected_idx = 0;
+
+	while (true) {
+		
+		AST_NodeIndex declaration;
+		if (parseDeclaration(r_source_file, declaration)) {
+
+			// end of code
+			if (skipSpacing() == false) {
+				return true;
+			}
+		}
+		else {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool Parser::isSimpleName(uint32_t token_index)
@@ -1054,50 +829,63 @@ bool Parser::isSimpleName(uint32_t token_index)
 	return false;
 }
 
-void Parser::parseFile(std::vector<uint8_t>& file_bytes, std::string file_path)
-{	
-	lexer.lexFile(file_bytes);
+bool Parser::isAtAdress()
+{
+	Token& token = getToken(token_i + 1);
 
-	{
-		//LexerPrintSettings settings;
-		//settings.show_selection = true;
-		//lexer.print(settings);
-		//return;
+	if (token.isSpacing()) {
+		return false;
 	}
+	else if (token.isSymbol()) {
 
-	AST_NodeIndex ast_root_idx;
-	{
-		auto* root = addNode<AST_SourceFile>(0, ast_root_idx);
-		root->file_path = file_path;
-	}
-	
-	uint32_t i = 0;
-	uint32_t ast_node_idx;
-
-	if (parseFunctionImplementation(ast_root_idx, i, ast_node_idx) == false) {
-
-		printf("\nErrors: \n");
-
-		for (auto& error : errors) {
-			printf("(%d, %d) %s \n",
-				error.selection.start.line, error.selection.start.column, error.msg.c_str());
+		if (token.value == "." || token.value == "<") {
+			return true;
 		}
+		return false;
 	}
+
+	return true;
 }
 
-void Parser::error(std::string msg, uint32_t token_index)
+void Parser::pushError(std::string error_mesage, TokenIndex token_index)
 {
-	Token& token = getToken(token_index);
+	auto& message = messages.emplace_back();
+	message.severity = MessageSeverity::Error;
 
-	CompilerMessage& new_err = errors.emplace_back();
-	new_err.msg = msg;
-	new_err.selection = token;
+	auto& row_0 = message.rows.emplace_back();
+	row_0.text = error_mesage;
+	row_0.selection = getToken(token_index);
 }
 
-void Parser::errorUnexpectedToken(std::string msg, uint32_t token_index)
+void Parser::errorUnexpectedToken(std::string error_mesage, Token& unexpected_token)
 {
-	std::string message = "unexpected token '" + getToken(token_index).value + "' " + msg;
-	error(message, token_index);
+	auto& message = messages.emplace_back();
+	message.severity = MessageSeverity::Error;
+
+	auto& row_0 = message.rows.emplace_back();
+	row_0.text = std::format("Encountered unexpected token '{}' {}",
+		unexpected_token.value, error_mesage);
+	row_0.selection = unexpected_token;
+}
+
+void Parser::errorUnexpectedToken(std::string error_mesage, TokenIndex unexpected_token)
+{
+	errorUnexpectedToken(error_mesage, getToken(unexpected_token));
+}
+
+void Parser::errorUnexpectedToken(std::string error_mesage)
+{
+	auto& message = messages.emplace_back();
+	message.severity = MessageSeverity::Error;
+
+	Token& unexpected_token = getToken(unexpected_idx);
+
+	auto& row_0 = message.rows.emplace_back();
+	row_0.text = std::format(
+		"Encountered unexpected token '{}' {}",
+		unexpected_token.value,
+		error_mesage);
+	row_0.selection = unexpected_token;
 }
 
 void Parser::_printTree(uint32_t node_idx, uint32_t depth, PrintAST_TreeSettings& settings)

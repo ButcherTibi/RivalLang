@@ -1,13 +1,13 @@
 ﻿
 // Standard
 #include <cstdio>
+#include <array>
 
 // Toolbox
 #include "ThirdParty\ButchersToolbox\Console.hpp"
 #include "ThirdParty\ButchersToolbox\utf8_string.hpp"
 #include "ThirdParty\ButchersToolbox\Filesys.hpp"
-#include "Lexer/Lexer.hpp"
-#include "Parser/Parser.hpp"
+#include "Resolve/Resolve.hpp"
 
 
 int main(int argument_count, char* argv[])
@@ -44,18 +44,39 @@ int main(int argument_count, char* argv[])
 			filesys::readFile(current_folder, bytes);
 			bytes.push_back('\0');
 
-			Parser parser;
-			parser.init();
-			parser.parseFile(bytes, file_name);
-			parser.resolve();
+			std::array<std::string, 1> files = {
+				file_name
+			};
+			AST_NodeIndex ast_source_file;
 
-			printf("\n");
+			Resolve front_end;
+			front_end.init();
+			front_end.lexer.lexFile(0, bytes);
+			front_end.parseSourceFile(ast_source_file);
+			front_end.resolve();
+
 			PrintAST_TreeSettings settings;
 			settings.show_code_selections = false;
-			parser.printAST(settings);
+			front_end.printAST(settings);
 
 			printf("\n");
-			parser.printDeclarations();
+			front_end.printDeclarations();
+
+			// Errors
+			if (front_end.messages.size() > 0) {
+
+				printf("\nErrors: \n");
+
+				for (CompilerMessage& message : front_end.messages) {
+
+					for (MessageRow& row : message.rows) {
+
+						printf("(%d, %d) %s \n",
+							row.selection.start.line, row.selection.start.column,
+							row.text.c_str());
+					}
+				}
+			}
 		}
 	}
 

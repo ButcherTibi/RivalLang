@@ -516,15 +516,13 @@ void Lexer::lexSymbol()
 	advance();
 }
 
-void Lexer::lexFile(std::vector<uint8_t>& new_bytes)
+void Lexer::lexFile(uint32_t new_file_index, std::vector<uint8_t>& new_bytes)
 {
 	bytes = new_bytes;
-	i = 0;
 
+	i = 0;
 	line = 1;
 	column = 1;
-
-	tokens.clear();
 
 	enum class Mode {
 		NORMAL,
@@ -577,6 +575,10 @@ void Lexer::lexFile(std::vector<uint8_t>& new_bytes)
 			break;
 		}
 		}
+	}
+
+	for (Token& token : tokens) {
+		token.selection.file_index = new_file_index;
 	}
 }
 

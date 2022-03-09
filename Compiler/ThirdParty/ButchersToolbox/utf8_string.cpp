@@ -66,34 +66,34 @@ void encodeUTF8_CodePoint(uint32_t code_point,
 	uint8_t& byte_0)
 {
 	// 7 bit
-	byte_0 = code_point;
+	byte_0 = (uint8_t)code_point;
 }
 
 void encodeUTF8_CodePoint(uint32_t code_point,
 	uint8_t& byte_0, uint8_t& byte_1)
 {
 	// 11 bit = 5 + 6
-	byte_0 = (code_point >> 6) | 0b1100'0000;
-	byte_1 = (code_point & 0b111111) | 0b1000'0000;
+	byte_0 = (uint8_t)((code_point >> 6) | 0b1100'0000);
+	byte_1 = (uint8_t)((code_point & 0b111111) | 0b1000'0000);
 }
 
 void encodeUTF8_CodePoint(uint32_t code_point,
 	uint8_t& byte_0, uint8_t& byte_1, uint8_t& byte_2)
 {
 	// 16 bit = 4 + 6 + 6
-	byte_0 = (code_point >> 12) | 0b1110'0000;
-	byte_1 = (code_point >> 6) & 0b111111 | 0b1000'0000;
-	byte_2 = code_point & 0b111111 | 0b1000'0000;
+	byte_0 = (uint8_t)((code_point >> 12) | 0b1110'0000);
+	byte_1 = (uint8_t)((code_point >> 6) & 0b111111 | 0b1000'0000);
+	byte_2 = (uint8_t)(code_point & 0b111111 | 0b1000'0000);
 }
 
 void encodeUTF8_CodePoint(uint32_t code_point,
 	uint8_t& byte_0, uint8_t& byte_1, uint8_t& byte_2, uint8_t& byte_3)
 {
 	// 21 bit = 3 + 6 + 6 + 6
-	byte_0 = (code_point >> 18) | 0b1111'0000;
-	byte_1 = (code_point >> 12) & 0b111111 | 0b1000'0000;
-	byte_2 = (code_point >> 6) & 0b111111 | 0b1000'0000;
-	byte_3 = code_point & 0b111111 | 0b1000'0000;
+	byte_0 = (uint8_t)((code_point >> 18) | 0b1111'0000);
+	byte_1 = (uint8_t)((code_point >> 12) & 0b111111 | 0b1000'0000);
+	byte_2 = (uint8_t)((code_point >> 6) & 0b111111 | 0b1000'0000);
+	byte_3 = (uint8_t)(code_point & 0b111111 | 0b1000'0000);
 }
 
 uint32_t byteCount(utf8string_iter& begin, utf8string_iter& end)
@@ -893,8 +893,8 @@ bool operator==(const utf8string& left, const char8_t* str_literal)
 
 		if (left.bytes[i] != str_literal[i]) {
 
-			uint8_t a = left.bytes[i];
-			uint8_t b = str_literal[i];
+			// uint8_t a = left.bytes[i];
+			// uint8_t b = str_literal[i];
 			return false;
 		}
 

@@ -29,6 +29,10 @@ struct AST_BaseNode {
 	};
 };
 
+struct AST_Declaration {
+	CodeSelection name_selection;
+};
+
 
 // Code Spliting ////////////////////////////////////////////////////////////////////
 
@@ -37,8 +41,6 @@ struct AST_Root : AST_BaseNode {
 };
 
 struct AST_SourceFile : AST_BaseNode {
-	std::string file_path;
-
 	DeclNodeIndex decl_node;
 
 	std::string toString() override;
@@ -77,7 +79,7 @@ struct AST_Literal : AST_BaseNode {
 
 // Variable /////////////////////////////////////////////////////////////////////////
 
-struct AST_VariableDeclaration : AST_BaseNode {
+struct AST_VariableDeclaration : AST_BaseNode, AST_Declaration {
 	Token name;  // name of the variable
 
 	AST_NodeIndex type;
@@ -106,7 +108,7 @@ struct AST_VariableAssignment : AST_BaseNode {
 
 // Function /////////////////////////////////////////////////////////////////////////
 
-struct AST_FunctionImplementation : AST_BaseNode {
+struct AST_FunctionImplementation : AST_BaseNode, AST_Declaration {
 	std::vector<Token> name;
 	std::vector<AST_NodeIndex> params;
 	AST_NodeIndex returns;
@@ -146,10 +148,6 @@ struct AST_TypeDeclaration : AST_BaseNode {
 	Token name;
 };
 
-struct AST_Declarations : AST_BaseNode {
-
-};
-
 
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -177,31 +175,23 @@ typedef std::variant<
 
 	// Type
 	AST_Type,
-	AST_TypeDeclaration,
-	AST_Declarations
+	AST_TypeDeclaration
 > AST_Node;
 
-
-enum class ScopeType {
-	DECLARATIONS,  // order independent
-	STATEMENTS,  // order dependent
-	NO_SCOPE  // does not restrict lookup
+enum class MessageSeverity : uint32_t {
+	Message,
+	Warning,
+	Error
 };
 
-struct DeclarationNode {
-	DeclNodeIndex parent;
-	std::vector<DeclNodeIndex> children;
-
-	AST_NodeIndex ast_node;
-	std::string name;
-	ScopeType scope_type;  // not used
+struct MessageRow {
+	std::string text;
+	CodeSelection selection;
 };
-
 
 struct CompilerMessage {
-	std::string msg;
-
-	CodeSelection selection;
+	std::vector<MessageRow> rows;
+	MessageSeverity severity;
 };
 
 struct PrintAST_TreeSettings {
@@ -209,28 +199,36 @@ struct PrintAST_TreeSettings {
 	bool show_code_selections = false;
 };
 
-struct DeclarationStack {
-	DeclNodeIndex decl_node_idx;
-	uint32_t stack_pos;
-};
+std::string getAdressName(std::vector<Token>& tokens);
+
 
 class Parser {
 public:
 	Lexer lexer;
 	std::vector<AST_Node> nodes;
 
-	// Resolve
-	std::vector<DeclarationNode> decls;
-	std::vector<DeclarationStack> stacks;
+	TokenIndex token_i;
+	TokenIndex unexpected_idx;
 
-	std::vector<CompilerMessage> errors;
+	std::vector<CompilerMessage> messages;
 
 public:
-
 	void init();
 
+
 	/* Utility functions */
+
 	Token& getToken(uint32_t token_index);
+	Token& getToken();
+
+	template<typename T>
+	T* getNode(AST_NodeIndex ast_node_idx)
+	{
+		return &std::get<T>(nodes[ast_node_idx]);
+	}
+
+	AST_BaseNode* getBaseNode(AST_NodeIndex ast_node_idx);
+	CodeSelection getNodeSelection(AST_NodeIndex ast_node_idx);
 
 	template<typename T>
 	T* addNode(uint32_t& r_new_node_index)
@@ -257,15 +255,20 @@ public:
 		return new_node;
 	}
 
-	template<typename T>
-	T* getNode(uint32_t node_idx)
-	{
-		return &std::get<T>(nodes[node_idx]);
-	}
-
-	AST_BaseNode* getBaseNode(uint32_t node_idx);
-
 	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
+
+
+	/* New Skip Functions */
+
+	void advanceToNextToken();
+
+	bool skipSpacing();
+
+	bool skipToIdentifier();
+
+	bool skipToSymbol(std::string symbol);
+
+	bool skipToClosingSymbol(std::string starting_symbol, std::string closing_symbol);
 
 
 	/* Seek Functions */
@@ -280,6 +283,8 @@ public:
 
 	/* Skip functions */
 
+	bool skipSpacing(TokenIndex& token_index);
+
 	// skip only spacing to find symbol
 	bool skipToSymbolToken(uint32_t& token_index, std::string target_symbol);
 	bool skipToSymbolToken(uint32_t token_index, std::string target_symbol, uint32_t& r_token_index);
@@ -288,7 +293,8 @@ public:
 	bool skipToNumberToken(uint32_t token_index, uint32_t& r_token_index);
 	bool skipToStringToken(uint32_t token_index, uint32_t& r_token_index);
 
-	// skip anything to reach closing end symbol
+	// skip anything to reach closing end symbol,
+	// token index must start AT start symbol token 
 	bool skipToClosingSymbolToken(uint32_t& token_index,
 		std::string start_symbol_token, std::string end_symbol_token);
 
@@ -299,8 +305,16 @@ public:
 	// skip only spacing to find identifier
 	bool skipToIdentifierToken(uint32_t& token_index);
 	bool skipToIdentifierToken(uint32_t token_index, uint32_t& r_token_index);
-
 	bool skipToIdentifierToken(uint32_t& token_index, std::string target_identifier);
+	bool skipToIdentifierToken(uint32_t& token_index, std::string target_identifier, uint32_t& r_token_index);
+
+
+	/* Check functions */
+
+	// checks if the identifier is not followed by '.' or other symbols
+	bool isSimpleName(uint32_t token_index);
+
+	bool isAtAdress();
 
 
 	/* Parse Functions ******************************************************************************/
@@ -361,57 +375,29 @@ public:
 	bool parseType(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
-	// @HERE: parseDeclarations
-	bool parseDeclarations(AST_NodeIndex ast_parent, uint32_t& token_index,
-		AST_NodeIndex& r_declarations);
 
+	/* Source File */
 
-	/* Check functions */
+	bool parseDeclaration(AST_NodeIndex ast_parent, AST_NodeIndex& r_declaration);
 
-	// checks if the identifier is not followed by '.' or other symbols
-	bool isSimpleName(uint32_t token_index);
+	bool parseSourceFile(AST_NodeIndex& r_source_file);
 
 
 	/* Error */
 
-	void error(std::string error_mesage, uint32_t token_index);
+	void pushError(std::string error_mesage, TokenIndex token_index);
 
 	// "unexpected token '{token.value}' "
-	void errorUnexpectedToken(std::string error_mesage, uint32_t token_index);
+	void errorUnexpectedToken(std::string error_mesage, Token& unexpected_token);
+	void errorUnexpectedToken(std::string error_mesage, TokenIndex unexpected_token);
+	void errorUnexpectedToken(std::string error_mesage);
 
-
-	/* Parser API */
-
-	void parseFile(std::vector<uint8_t>& file_bytes, std::string file_path);
-
-
-	/* Resolve */
-
-	DeclarationNode* addDeclaration(DeclNodeIndex parent_scope, DeclNodeIndex& r_new_scope);
-	DeclarationNode* addDeclaration(DeclNodeIndex parent_scope);
-	DeclarationNode* getParentDeclaration();
-	DeclarationStack* addDeclarationStack(DeclNodeIndex decl_node_idx);
-
-	void gatherUnorderedDeclarations(DeclNodeIndex parent_scope, AST_NodeIndex ast_parent_idx);
-
-	DeclNodeIndex resolveAdress(std::vector<Token>& address);
-
-	bool resolveStatements(AST_NodeIndex ast_node);
-
-	bool resolveFunctionImplementation(AST_NodeIndex ast_node);
-
-	bool resolve();
-
-	// bool typeCheck();
 
 
 	/* Debug */
 	void _printTree(uint32_t node_idx, uint32_t depth, PrintAST_TreeSettings&);
 	void printAST(PrintAST_TreeSettings settings = PrintAST_TreeSettings());
 	void printNodes(uint32_t start_index = 0, uint32_t end_index = 0xFFFF'FFFF);
-
-	void _printScopes(DeclNodeIndex scope_idx, uint32_t depth);
-	void printDeclarations();
 };
 
 
@@ -495,7 +481,7 @@ public:
 
 	//void errorBinaryOperatorIncompatibleTypes(AST_BinaryOperator binary_op, TypeNode* a, TypeNode* b)
 	//{
-	//	CompilerMessage& new_error = parser.errors.emplace_back();
+	//	CompilerMessage& new_error = parser.messages.emplace_back();
 	//	new_error.msg = "Incompatible operand types: \n";
 	//	new_error.msg += "  " + toString(a) + "\n";
 	//	new_error.msg += "  " + toString(b) + "\n";

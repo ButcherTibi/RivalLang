@@ -11,16 +11,18 @@
     <ClCompile Include="Parser\Parser.cpp">
       <Filter>Parser</Filter>
     </ClCompile>
-    <ClCompile Include="Parser\ParserUtils.cpp">
+    <ClCompile Include="Parser\Utils.cpp">
       <Filter>Parser</Filter>
     </ClCompile>
     <ClCompile Include="Runtime.cpp" />
-    <ClCompile Include="Parser\Resolve.cpp" />
+    <ClCompile Include="Resolve\Resolve.cpp" />
     <ClCompile Include="ThirdParty\ButchersToolbox\Console.cpp" />
     <ClCompile Include="ThirdParty\ButchersToolbox\Filesys.cpp" />
     <ClCompile Include="ThirdParty\ButchersToolbox\utf8_string.cpp" />
     <ClCompile Include="ThirdParty\ButchersToolbox\WindowsSpecific.cpp" />
     <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="Resolve\Utils.cpp" />
+    <ClCompile Include="Parser\TokenLookup.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Precompiled Headers">
@@ -54,6 +56,20 @@
     <ClInclude Include="ThirdParty\ButchersToolbox\utf8_string.hpp" />
     <ClInclude Include="ThirdParty\ButchersToolbox\WindowsSpecific.hpp" />
     <ClInclude Include="Compiler.hpp" />
+    <ClInclude Include="Resolve\Resolve.hpp" />
+    <ClInclude Include="ThirdParty\fmt\args.h" />
+    <ClInclude Include="ThirdParty\fmt\chrono.h" />
+    <ClInclude Include="ThirdParty\fmt\color.h" />
+    <ClInclude Include="ThirdParty\fmt\compile.h" />
+    <ClInclude Include="ThirdParty\fmt\core.h" />
+    <ClInclude Include="ThirdParty\fmt\format.h" />
+    <ClInclude Include="ThirdParty\fmt\format-inl.h" />
+    <ClInclude Include="ThirdParty\fmt\locale.h" />
+    <ClInclude Include="ThirdParty\fmt\os.h" />
+    <ClInclude Include="ThirdParty\fmt\ostream.h" />
+    <ClInclude Include="ThirdParty\fmt\printf.h" />
+    <ClInclude Include="ThirdParty\fmt\ranges.h" />
+    <ClInclude Include="ThirdParty\fmt\xchar.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Code Tests\main.txt" />

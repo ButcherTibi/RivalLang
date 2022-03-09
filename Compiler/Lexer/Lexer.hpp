@@ -6,9 +6,10 @@
 
 using namespace std::string_literals;
 
-
 struct Token;
 class Lexer;
+
+typedef uint32_t TokenIndex;
 
 
 enum class TokenTypes {
@@ -45,6 +46,8 @@ struct SourceCodePosition {
 };
 
 struct CodeSelection {
+	uint32_t file_index;  // in which file does this selection reside
+
 	SourceCodePosition start;
 	SourceCodePosition end;
 
@@ -121,7 +124,7 @@ public:
 	// everything, must put this last
 	void lexSymbol();
 
-	void lexFile(std::vector<uint8_t>& file_bytes);
+	void lexFile(uint32_t file_index, std::vector<uint8_t>& file_bytes);
 
 
 	void print(LexerPrintSettings settings = LexerPrintSettings());

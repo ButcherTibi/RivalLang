@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <string>
-#include <inttypes.h>
+#include <cstdint>
 
 using namespace std::string_literals;
 

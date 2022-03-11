@@ -1,8 +1,4 @@
 ﻿
-// Standard
-#include <cstdio>
-#include <array>
-
 // Toolbox
 #include "ThirdParty\ButchersToolbox\Console.hpp"
 #include "ThirdParty\ButchersToolbox\utf8_string.hpp"
@@ -47,20 +43,30 @@ int main(int argument_count, char* argv[])
 			std::array<std::string, 1> files = {
 				file_name
 			};
-			AST_NodeIndex ast_source_file;
 
 			Resolve front_end;
 			front_end.init();
 			front_end.lexer.lexFile(0, bytes);
-			front_end.parseSourceFile(ast_source_file);
-			front_end.resolve();
+			if (front_end.parseSourceFile() != ast_invalid_idx) {
+				front_end.resolve();
+			}
 
-			PrintAST_TreeSettings settings;
-			settings.show_code_selections = false;
-			front_end.printAST(settings);
+			{
+				LexerPrintSettings settings;
+				front_end.lexer.print(settings);
+			}		
 
-			printf("\n");
-			front_end.printDeclarations();
+			{
+				printf("\n");
+				PrintAST_TreeSettings settings;
+				settings.show_code_selections = false;
+				front_end.printAST(settings);
+			}
+
+			{
+				printf("\n");
+				front_end.printDeclarations();
+			}
 
 			// Errors
 			if (front_end.messages.size() > 0) {

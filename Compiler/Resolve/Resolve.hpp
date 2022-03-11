@@ -45,7 +45,7 @@ public:
 	DeclarationNode* getDeclaration(DeclNodeIndex decl_idx);
 	std::string getFullName(DeclNodeIndex decl_idx);
 
-	template<typename T>
+	template<typename T = AST_Root>
 	bool addDeclaration(DeclNodeIndex parent_decl_idx,
 		AST_NodeIndex ast_node_idx, std::string name,
 		DeclNodeIndex& r_new_decl)

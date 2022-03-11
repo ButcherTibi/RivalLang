@@ -6,6 +6,8 @@
 // Standard
 #include <cstdio>
 #include <format>
+#include <vector>
+#include <array>
 
 // Compiler
 #include <intrin.h>

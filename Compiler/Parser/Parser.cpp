@@ -21,6 +21,25 @@ void Parser::parseCompositeName(uint32_t& i, std::vector<Token>& r_name)
 	}
 }
 
+void Parser::parseAdress(std::vector<Token>& r_adress)
+{
+	while (token_i < lexer.tokens.size()) {
+
+		if (skipToIdentifier()) {
+
+			r_adress.push_back(getToken());
+			advanceToNextToken();
+
+			if (skipToSymbol(".")) {
+				advanceToNextToken();
+				continue;
+			}
+		}
+
+		return;
+	}
+}
+
 void Parser::parseModifiers(uint32_t& i, std::vector<Token>& r_modifiers)
 {
 	while (skipToIdentifierToken(i)) {
@@ -42,8 +61,8 @@ bool Parser::_parseExpression(uint32_t& i, int32_t parent_precedence,
 
 			i = t;
 
-			std::vector<Token> adress;
-			parseCompositeName(i, adress);
+			/*std::vector<Token> adress;
+			parseCompositeName(i, adress);*/
 
 			/*if (skipToSymbolToken(i, "(")) {
 
@@ -200,68 +219,66 @@ bool Parser::parseExpression(uint32_t parent_node_index, uint32_t& i,
 	}
 }
 
-bool Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index, uint32_t& i,
-	AST_NodeIndex& r_var_decl_node)
+AST_NodeIndex Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index)
 {
-	uint32_t new_i;
+	AST_NodeIndex r_var_decl_idx;
 
-	if (skipToIdentifierToken(i, new_i)) {
+	if (skipToIdentifier()) {
 
-		i = new_i;
 		{
-			auto* var_decl = addNode<AST_VariableDeclaration>(parent_node_index, r_var_decl_node);
-			var_decl->name = getToken(i);
+			auto* var_decl = addNode<AST_VariableDeclaration>(parent_node_index, r_var_decl_idx);
+			var_decl->name = getToken();
 			var_decl->setStart(var_decl->name);
 		}
 		
-		i++;
+		advanceToNextToken();
 
-		if (skipToIdentifierToken(i, new_i)) {
+		if (skipToIdentifier()) {
 
-			i = new_i;
-			uint32_t type;
-
-			if (parseType(r_var_decl_node, i, type)) {
+			AST_NodeIndex type;
+			if (parseType(r_var_decl_idx, token_i, type)) {
 
 				// default value assignment
-				if (skipToSymbolToken(i, "=", new_i)) {
+				if (skipToSymbol("=")) {
 
-					i = new_i + 1;
-					uint32_t default_expr;
+					advanceToNextToken();
 
-					if (parseExpression(r_var_decl_node, i, default_expr)) {
+					AST_NodeIndex default_expr;
+					if (parseExpression(r_var_decl_idx, token_i, default_expr)) {
 
-						auto var_decl = getNode<AST_VariableDeclaration>(r_var_decl_node);
+						auto var_decl = getNode<AST_VariableDeclaration>(r_var_decl_idx);
 						var_decl->type = type;
 						var_decl->default_expr = default_expr;
-						var_decl->setEnd(getToken(i));
-						return true;
+						var_decl->setEnd(getToken());
+
+						return r_var_decl_idx;
 					}
 					else {
-						pushError("Error in default variable value in variable declaration", i);
-						return false;
+						pushError("Error in default variable value in variable declaration", token_i);
+						return ast_invalid_idx;
 					}
 				}
 
-				auto var_decl = getNode<AST_VariableDeclaration>(r_var_decl_node);
+				auto var_decl = getNode<AST_VariableDeclaration>(r_var_decl_idx);
 				var_decl->type = type;
 				var_decl->default_expr = 0xFFFF'FFFF;
-				var_decl->setEnd(getToken(i));
-				return true;
+				var_decl->setEnd(getToken());
+				return r_var_decl_idx;
 			}
 			else {
-				pushError("Error in variable type in variable declaration", i);
-				return false;
+				pushError("Error in variable type in variable declaration");
+				return ast_invalid_idx;
 			}
 		}
 		else {
-			errorUnexpectedToken("while looking for variable type in variable declaration", new_i);
-			return false;
+			errorUnexpectedToken("while looking for variable type in variable declaration");
+			return ast_invalid_idx;
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for variable name in variable declaration", new_i);
-		return false;
+		errorUnexpectedToken(
+			"while looking for variable name in variable declaration");
+		return ast_invalid_idx;
 	}
 }
 
@@ -302,49 +319,42 @@ bool Parser::parseVariableAssignment(uint32_t parent_node_index, uint32_t& i,
 	}
 }
 
-bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, uint32_t& i,
-	AST_NodeIndex& r_func_impl)
+bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, AST_NodeIndex& r_func_impl)
 {
-	uint32_t new_i;
-
-	if (skipToIdentifierToken(i, new_i)) {
-
-		i = new_i;
+	if (skipToIdentifier()) {
 
 		auto* func_impl = addNode<AST_FunctionImplementation>(parent_node_index, r_func_impl);
-		func_impl->setStart(getToken(i));
+		func_impl->setStart(getToken());
 
-		parseCompositeName(i, func_impl->name);
+		parseAdress(func_impl->name);
 
-		if (skipToSymbolToken(i, "(", new_i)) {
+		if (skipToSymbol("(")) {
 
-			i = new_i + 1;
+			advanceToNextToken();
 
 			// function has NO parameters
-			if (skipToSymbolToken(i, ")", new_i)) {
-
-				i = new_i + 1;
+			if (skipToSymbol(")")) {
+				advanceToNextToken();
 			}
 			// function has parameters
 			else {
 				while (true) {
 
-					AST_NodeIndex var_decl_node;
-
-					if (parseVariableDeclaration(r_func_impl, i, var_decl_node)) {
+					AST_NodeIndex var_decl_idx = parseVariableDeclaration(r_func_impl);
+					if (var_decl_idx != ast_invalid_idx) {
 
 						func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
-						func_impl->params.push_back(var_decl_node);
+						func_impl->params.push_back(var_decl_idx);
 
-						if (skipToSymbolToken(i, ",")) {
-							i++;
+						if (skipToSymbol(",")) {
+							advanceToNextToken();
 						}
-						else if (skipToSymbolToken(i, ")")) {
-							i++;
+						else if (skipToSymbol(")")) {
+							advanceToNextToken();
 							break;
 						}
 						else {
-							errorUnexpectedToken("while looking for function parameter", i);
+							errorUnexpectedToken("while looking for function parameter");
 							return false;
 						}
 					}
@@ -355,10 +365,10 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, uint32
 			}
 
 			// function HAS a return type
-			if (skipToSymbolToken(i, "{", new_i) == false) {
+			if (skipToSymbol("{") == false) {
 
-				uint32_t return_type;
-				if (parseType(r_func_impl, i, return_type)) {
+				AST_NodeIndex return_type;
+				if (parseType(r_func_impl, token_i, return_type)) {
 
 					func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
 					func_impl->returns = return_type;
@@ -368,15 +378,13 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, uint32
 				}
 			}
 			else {
-				i = new_i;
-
 				func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
 				func_impl->returns = 0xFFFF'FFFF;
 			}
 
 			// function body
-			AST_NodeIndex ast_statements_idx;
-			if (parseStatements(r_func_impl, i, ast_statements_idx)) {
+			AST_NodeIndex ast_statements_idx = parseStatements(r_func_impl);
+			if (ast_statements_idx != ast_invalid_idx) {
 
 				func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
 				func_impl->statements = ast_statements_idx;
@@ -390,12 +398,12 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, uint32
 			}
 		}
 		else {
-			errorUnexpectedToken("while looking for function parameters", new_i);
+			errorUnexpectedToken("while looking for function parameters");
 			return false;
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for function name", new_i);
+		errorUnexpectedToken("while looking for function name");
 		return false;
 	}
 }
@@ -501,7 +509,8 @@ bool Parser::parseStatement(AST_NodeIndex parent, uint32_t& i,
 
 				i = name_token;
 
-				if (parseVariableDeclaration(parent, i, r_statement)) {
+				r_statement = parseVariableDeclaration(parent);
+				if (r_statement != ast_invalid_idx) {
 					return check_for_statement_end();
 				}
 				else {
@@ -575,52 +584,48 @@ bool Parser::parseStatement(AST_NodeIndex parent, uint32_t& i,
 		}
 	}
 	else {
-		pushError("Unrecognized statement", i);
+		pushError("Unrecognized statement", new_i);
 		return false;
 	}
 }
 
-bool Parser::parseStatements(AST_NodeIndex ast_parent_idx, uint32_t& i,
-	AST_NodeIndex& r_statements)
+AST_NodeIndex Parser::parseStatements(AST_NodeIndex ast_parent_idx)
 {
+	AST_NodeIndex r_statements;
 	addNode<AST_Statements>(ast_parent_idx, r_statements);
 
-	uint32_t new_i;
-
-	if (skipToSymbolToken(i, "{", new_i)) {
+	if (skipToSymbol("{")) {
 
 		{
 			auto statements = getNode<AST_Statements>(r_statements);
-			statements->setStart(getToken(new_i));
+			statements->setStart(getToken());
 		}
 
-		i = new_i + 1;
+		advanceToNextToken();
 
 		while (true) {
 
-			if (skipToSymbolToken(i, "}", new_i)) {
-
-				i = new_i;
+			if (skipToSymbol("}")) {
 
 				auto statements = getNode<AST_Statements>(r_statements);
-				statements->setEnd(getToken(i));
+				statements->setEnd(getToken());
 
-				i++;
-				return true;
+				advanceToNextToken();
+				return r_statements;
 			}
 
 			uint32_t statement;
-			if (parseStatement(r_statements, i, statement) == false) {
-				return false;
+			if (parseStatement(r_statements, token_i, statement) == false) {
+				return ast_invalid_idx;
 			}
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for scope start symbol '{'", i);
-		return false;
+		errorUnexpectedToken("while looking for scope start symbol '{'");
+		return ast_invalid_idx;
 	}
 
-	__debugbreak();
+	throw;
 }
 
 bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
@@ -677,9 +682,10 @@ bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
 	__debugbreak();
 }
 
-bool Parser::parseDeclaration(AST_NodeIndex ast_parent,
-	AST_NodeIndex& r_declaration)
+AST_NodeIndex Parser::parseDeclaration(AST_NodeIndex ast_parent)
 {
+	AST_NodeIndex r_declaration;
+
 	if (skipToIdentifier()) {
 
 		uint32_t name_token = token_i;
@@ -694,19 +700,20 @@ bool Parser::parseDeclaration(AST_NodeIndex ast_parent,
 
 				token_i = name_token;
 
-				if (parseVariableDeclaration(ast_parent, token_i, r_declaration)) {
+				r_declaration = parseVariableDeclaration(ast_parent);
+				if (r_declaration != ast_invalid_idx) {
 
 					if (skipToSymbol(";")) {
 						advanceToNextToken();
-						return true;
+						return r_declaration;
 					}
 					else {
 						errorUnexpectedToken("while looking for variable declaration end");
-						return false;
+						return ast_invalid_idx;
 					}
 				}
 				else {
-					return false;
+					return ast_invalid_idx;
 				}
 			}
 			// function declaration/implementation
@@ -741,11 +748,11 @@ bool Parser::parseDeclaration(AST_NodeIndex ast_parent,
 
 						token_i = name_token;
 
-						if (parseFunctionImplementation(ast_parent, token_i, r_declaration)) {
-							return true;
+						if (parseFunctionImplementation(ast_parent, r_declaration)) {
+							return r_declaration;
 						}
 						else {
-							return false;
+							return ast_invalid_idx;
 						}
 					}
 					// function declaration
@@ -758,18 +765,18 @@ bool Parser::parseDeclaration(AST_NodeIndex ast_parent,
 					else {
 						errorUnexpectedToken(
 							"after function declaration/implementation parameter list");
-						return false;
+						return ast_invalid_idx;
 					}
 				}
 				else {
 					errorUnexpectedToken(
 						"while looking for closing ')' in function declaration/implementation");
-					return false;
+					return ast_invalid_idx;
 				}
 			}
 			else {
 				errorUnexpectedToken("after identifier in statement");
-				return false;
+				return ast_invalid_idx;
 			}
 		}
 		else {
@@ -780,14 +787,15 @@ bool Parser::parseDeclaration(AST_NodeIndex ast_parent,
 	}
 	else {
 		errorUnexpectedToken("while looking for declaration");
-		return false;
+		return ast_invalid_idx;
 	}
 
-	return false;
+	throw;
 }
 
-bool Parser::parseSourceFile(AST_NodeIndex& r_source_file)
+AST_NodeIndex Parser::parseSourceFile()
 {
+	AST_NodeIndex r_source_file;
 	addNode<AST_SourceFile>(0, r_source_file);
 
 	this->token_i = 0;
@@ -795,20 +803,19 @@ bool Parser::parseSourceFile(AST_NodeIndex& r_source_file)
 
 	while (true) {
 		
-		AST_NodeIndex declaration;
-		if (parseDeclaration(r_source_file, declaration)) {
+		if (parseDeclaration(r_source_file) != 0xFFFF'FFFF) {
 
 			// end of code
 			if (skipSpacing() == false) {
-				return true;
+				return r_source_file;
 			}
 		}
 		else {
-			return false;
+			return ast_invalid_idx;
 		}
 	}
 
-	return true;
+	throw;
 }
 
 bool Parser::isSimpleName(uint32_t token_index)
@@ -855,6 +862,16 @@ void Parser::pushError(std::string error_mesage, TokenIndex token_index)
 	auto& row_0 = message.rows.emplace_back();
 	row_0.text = error_mesage;
 	row_0.selection = getToken(token_index);
+}
+
+void Parser::pushError(std::string error_mesage)
+{
+	auto& message = messages.emplace_back();
+	message.severity = MessageSeverity::Error;
+
+	auto& row_0 = message.rows.emplace_back();
+	row_0.text = error_mesage;
+	row_0.selection = getToken(unexpected_idx);
 }
 
 void Parser::errorUnexpectedToken(std::string error_mesage, Token& unexpected_token)

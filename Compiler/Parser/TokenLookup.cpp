@@ -20,7 +20,7 @@ bool Parser::skipSpacing()
 			return true;
 		}
 
-		token_i++;
+		i++;
 	}
 
 	unexpected_idx = token_i;

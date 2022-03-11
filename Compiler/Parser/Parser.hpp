@@ -13,6 +13,8 @@
 typedef uint32_t AST_NodeIndex;
 typedef uint32_t DeclNodeIndex;
 
+const AST_NodeIndex ast_invalid_idx = 0xFFFF'FFFF;
+
 
 // Base class for all abstract syntax tree nodes, never used on its own
 struct AST_BaseNode {
@@ -25,7 +27,7 @@ struct AST_BaseNode {
 	void setEnd(const Token&);
 
 	virtual std::string toString() {
-		return "AST_Node";
+		return "AST_Node"s;
 	};
 };
 
@@ -52,7 +54,7 @@ struct AST_SourceFile : AST_BaseNode {
 // Expression used in assignment or function call
 struct AST_Expression : AST_BaseNode {
 	std::string toString() override {
-		return "Expression";
+		return "Expression"s;
 	};
 };
 
@@ -327,6 +329,7 @@ public:
 	// parse dot separated list of identifiers
 	// ex: namespace_name.class_name.property_name
 	void parseCompositeName(uint32_t& token_index, std::vector<Token>& r_name);
+	void parseAdress(std::vector<Token>& r_adress);
 
 	// parse space separated list of modifiers
 	// ex: modifier_0 modifier_1 modifier_2
@@ -345,9 +348,8 @@ public:
 	/* Variable */
 
 	// a variable declaration is defined as the combination of a simple indetifier for the name and
-	// a another identifier acting as the ast_type
-	bool parseVariableDeclaration(AST_NodeIndex parent_node_index, uint32_t& token_index,
-		AST_NodeIndex& r_child_node_index);
+	// a another identifier acting as the type
+	AST_NodeIndex parseVariableDeclaration(AST_NodeIndex parent_node_index);
 
 	// assignment is defined as a complex name and the `=` sign
 	bool parseVariableAssignment(uint32_t parent_node_index, uint32_t& token_index,
@@ -356,17 +358,16 @@ public:
 
 	/* Function */
 
-	bool parseFunctionImplementation(AST_NodeIndex parent_node, uint32_t& token_index,
-		AST_NodeIndex& r_func_impl);
+	bool parseFunctionImplementation(AST_NodeIndex parent_node,	AST_NodeIndex& r_func_impl);
 
 	bool parseFunctionCall(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
+	// @HERE
 	bool parseStatement(AST_NodeIndex ast_parent, uint32_t& token_index,
 		AST_NodeIndex& r_statement);
 
-	bool parseStatements(AST_NodeIndex ast_parent, uint32_t& token_index,
-		AST_NodeIndex& r_statements);
+	AST_NodeIndex parseStatements(AST_NodeIndex ast_parent);
 
 
 	/* Type */
@@ -375,17 +376,20 @@ public:
 	bool parseType(uint32_t parent_node_index, uint32_t& token_index,
 		uint32_t& r_child_node_index);
 
+	// bool parseTypeDeclaration();
+
 
 	/* Source File */
 
-	bool parseDeclaration(AST_NodeIndex ast_parent, AST_NodeIndex& r_declaration);
+	AST_NodeIndex parseDeclaration(AST_NodeIndex ast_parent);
 
-	bool parseSourceFile(AST_NodeIndex& r_source_file);
+	AST_NodeIndex parseSourceFile();
 
 
 	/* Error */
 
 	void pushError(std::string error_mesage, TokenIndex token_index);
+	void pushError(std::string error_mesage);
 
 	// "unexpected token '{token.value}' "
 	void errorUnexpectedToken(std::string error_mesage, Token& unexpected_token);

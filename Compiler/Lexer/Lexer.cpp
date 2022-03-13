@@ -25,8 +25,10 @@ std::string toStringTokenTypes(TokenTypes token_type)
 	case TokenTypes::f64:
 		return "f64";
 
-	case TokenTypes::number:
-		return "number";
+	case TokenTypes::hexadecimal:
+		return "hexadecimal";
+	case TokenTypes::binary:
+		return "binary";
 
 	case TokenTypes::STRING:
 		return "String";
@@ -77,7 +79,8 @@ bool Token::isNumberLike()
 		type == TokenTypes::u64 ||
 		type == TokenTypes::f32 ||
 		type == TokenTypes::f64 ||
-		type == TokenTypes::number;
+		type == TokenTypes::hexadecimal ||
+		type == TokenTypes::binary;
 }
 
 bool Token::isSymbol()
@@ -90,7 +93,7 @@ bool Token::isSymbol(std::string other)
 	return type == TokenTypes::SYMBOL && value == other;
 }
 
-bool Token::isExpressionSign()
+bool Token::isOperator()
 {
 	if (type == TokenTypes::SYMBOL) {
 
@@ -313,7 +316,7 @@ void Lexer::lexNumber()
 void Lexer::lexHexadecimal()
 {
 	Token& new_token = tokens.emplace_back();
-	new_token.type = TokenTypes::number;
+	new_token.type = TokenTypes::hexadecimal;
 	new_token.start(this);
 
 	uint32_t start_index = 0xFFFF'FFFF;
@@ -362,7 +365,7 @@ void Lexer::lexHexadecimal()
 void Lexer::lexBinary()
 {
 	Token& new_token = tokens.emplace_back();
-	new_token.type = TokenTypes::number;
+	new_token.type = TokenTypes::binary;
 	new_token.start(this);
 
 	uint32_t start_index = 0xFFFF'FFFF;

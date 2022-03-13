@@ -35,6 +35,10 @@ struct AST_Declaration {
 	CodeSelection name_selection;
 };
 
+struct AST_Value {
+
+};
+
 
 // Code Spliting ////////////////////////////////////////////////////////////////////
 
@@ -72,7 +76,7 @@ struct AST_BinaryOperator : AST_BaseNode {
 	};
 };
 
-struct AST_Literal : AST_BaseNode {
+struct AST_Literal : AST_BaseNode, AST_Value {
 	Token token;
 
 	std::string toString() override;
@@ -93,7 +97,7 @@ public:
 	std::string toString() override;
 };
 
-struct AST_Variable : AST_BaseNode {
+struct AST_Variable : AST_BaseNode, AST_Value {
 	std::vector<Token> address;  // name of the variable
 
 	std::string toString() override;
@@ -123,7 +127,7 @@ public:
 	std::string toString() override;
 };
 
-struct AST_FunctionCall : AST_BaseNode {
+struct AST_FunctionCall : AST_BaseNode, AST_Value {
 	std::vector<Token> address;
 	std::vector<Token> modifiers_tokens;
 	// arguments will be the child expression nodes
@@ -260,55 +264,28 @@ public:
 	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
 
 
-	/* New Skip Functions */
+	/* Token Updade */
 
 	void advanceToNextToken();
+
+
+	/* Skip Functions */
 
 	bool skipSpacing();
 
 	bool skipToIdentifier();
 
+	bool skipPastAdress();
+
 	bool skipToSymbol(std::string symbol);
+
+	bool skipToOperator();
 
 	bool skipToClosingSymbol(std::string starting_symbol, std::string closing_symbol);
 
+	bool skipToNumberLike();
 
-	/* Seek Functions */
-
-	// skip spacing and identifiers but not specified symbols to find symbol token
-	bool seekToSymbolToken(uint32_t& token_index, std::string symbol_token,
-		std::vector<std::string> not_allowed_symbols, bool allow_identifier = true);
-
-	// skip spacing and identifiers to reach for symbol
-	bool seekToSymbolToken(uint32_t& token_index, std::string symbol_token);
-
-
-	/* Skip functions */
-
-	bool skipSpacing(TokenIndex& token_index);
-
-	// skip only spacing to find symbol
-	bool skipToSymbolToken(uint32_t& token_index, std::string target_symbol);
-	bool skipToSymbolToken(uint32_t token_index, std::string target_symbol, uint32_t& r_token_index);
-
-	bool skipToExpressionSymbolToken(uint32_t token_index, uint32_t& r_token_index);
-	bool skipToNumberToken(uint32_t token_index, uint32_t& r_token_index);
-	bool skipToStringToken(uint32_t token_index, uint32_t& r_token_index);
-
-	// skip anything to reach closing end symbol,
-	// token index must start AT start symbol token 
-	bool skipToClosingSymbolToken(uint32_t& token_index,
-		std::string start_symbol_token, std::string end_symbol_token);
-
-	// skip spacing and identifiers
-	bool skipPastIdentifiers(uint32_t& token_index);
-	bool skipPastCompositeName(uint32_t& token_index);
-
-	// skip only spacing to find identifier
-	bool skipToIdentifierToken(uint32_t& token_index);
-	bool skipToIdentifierToken(uint32_t token_index, uint32_t& r_token_index);
-	bool skipToIdentifierToken(uint32_t& token_index, std::string target_identifier);
-	bool skipToIdentifierToken(uint32_t& token_index, std::string target_identifier, uint32_t& r_token_index);
+	bool skipToString();
 
 
 	/* Check functions */
@@ -328,7 +305,6 @@ public:
 
 	// parse dot separated list of identifiers
 	// ex: namespace_name.class_name.property_name
-	void parseCompositeName(uint32_t& token_index, std::vector<Token>& r_name);
 	void parseAdress(std::vector<Token>& r_adress);
 
 	// parse space separated list of modifiers
@@ -338,11 +314,9 @@ public:
 
 	/* Expression */
 
-	bool _parseExpression(uint32_t& token_index, int32_t parent_precedence,
-		uint32_t& r_child_node_index);
+	AST_NodeIndex _parseExpression(int32_t parent_precedence);
 
-	bool parseExpression(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	AST_NodeIndex parseExpression(AST_NodeIndex ast_parent);
 
 
 	/* Variable */
@@ -352,20 +326,16 @@ public:
 	AST_NodeIndex parseVariableDeclaration(AST_NodeIndex parent_node_index);
 
 	// assignment is defined as a complex name and the `=` sign
-	bool parseVariableAssignment(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	AST_NodeIndex parseVariableAssignment(AST_NodeIndex ast_parent);
 
 
 	/* Function */
 
-	bool parseFunctionImplementation(AST_NodeIndex parent_node,	AST_NodeIndex& r_func_impl);
+	AST_NodeIndex parseFunctionImplementation(AST_NodeIndex ast_parent);
 
-	bool parseFunctionCall(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	AST_NodeIndex parseFunctionCall(AST_NodeIndex ast_parent);
 
-	// @HERE
-	bool parseStatement(AST_NodeIndex ast_parent, uint32_t& token_index,
-		AST_NodeIndex& r_statement);
+	AST_NodeIndex parseStatement(AST_NodeIndex ast_parent);
 
 	AST_NodeIndex parseStatements(AST_NodeIndex ast_parent);
 
@@ -373,8 +343,7 @@ public:
 	/* Type */
 
 	// parse the ast_type in stuff like variable declarations, function parameters
-	bool parseType(uint32_t parent_node_index, uint32_t& token_index,
-		uint32_t& r_child_node_index);
+	AST_NodeIndex parseType(AST_NodeIndex ast_parent);
 
 	// bool parseTypeDeclaration();
 

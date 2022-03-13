@@ -25,8 +25,8 @@ bool Resolve::gatherUnorderedDeclarations(DeclNodeIndex parent_decl_idx, AST_Nod
 
 			auto& ast_source_file = std::get<AST_SourceFile>(ast_node);
 
-			addDeclaration<AST_SourceFile>(parent_decl_idx, ast_child_idx,
-				"", ast_source_file.decl_node);
+			addDeclaration(parent_decl_idx, ast_child_idx, "", DeclarationType::source_file,
+				ast_source_file.decl_node);
 
 			if (gatherUnorderedDeclarations(ast_source_file.decl_node, ast_child_idx) == false) {
 				return false;
@@ -36,8 +36,8 @@ bool Resolve::gatherUnorderedDeclarations(DeclNodeIndex parent_decl_idx, AST_Nod
 
 			auto& ast_var_decl = std::get<AST_VariableDeclaration>(ast_node);
 
-			if (addDeclaration<AST_VariableDeclaration>(parent_decl_idx, ast_child_idx,
-				ast_var_decl.name.value, ast_var_decl.decl_node) == false)
+			if (addDeclaration(parent_decl_idx, ast_child_idx, ast_var_decl.name.value, DeclarationType::variable,
+				ast_var_decl.decl_node) == false)
 			{
 				return false;
 			}
@@ -46,8 +46,8 @@ bool Resolve::gatherUnorderedDeclarations(DeclNodeIndex parent_decl_idx, AST_Nod
 
 			auto& ast_func_impl = std::get<AST_FunctionImplementation>(ast_node);
 
-			if (addDeclaration<AST_FunctionImplementation>(parent_decl_idx, ast_child_idx,
-				ast_func_impl.name.back().value, ast_func_impl.decl_node) == false)
+			if (addDeclaration(parent_decl_idx, ast_child_idx, ast_func_impl.name.back().value, DeclarationType::function,
+				ast_func_impl.decl_node) == false)
 			{
 				return false;
 			}
@@ -57,41 +57,53 @@ bool Resolve::gatherUnorderedDeclarations(DeclNodeIndex parent_decl_idx, AST_Nod
 	return true;
 }
 
-DeclNodeIndex Resolve::resolveAdress(DeclarationStack& starting_stack, std::vector<Token>& adress)
+DeclNodeIndex Resolve::findDeclaration(DeclarationNode& parent, uint32_t max_child_idx,
+	std::string name)
 {
+	for (DeclNodeIndex i = 0; i < max_child_idx; i++) {
+
+		DeclNodeIndex child_decl_idx = parent.children[i];
+		DeclarationNode& child = decls[child_decl_idx];
+
+		if (child.name == name) {
+			return child_decl_idx;
+		}
+	}
+
+	return 0xFFFF'FFFF;
+}
+
+DeclNodeIndex Resolve::resolveAdress(DeclarationStack& starting_stack, std::vector<Token>& adress, DeclarationType type)
+{
+	DeclNodeIndex r_decl_idx = 0xFFFF'FFFF;
+
 	DeclarationStack* stack = &starting_stack;
-	uint32_t adress_idx = adress.size() - 1;
+	uint32_t last_adress_idx = adress.size() - 1;
+	uint32_t adress_idx = last_adress_idx;
 
 	while (stack != nullptr) {
 
 		DeclarationNode& parent_decl = decls[stack->decl];
 
-		bool found_name = false;
-		uint32_t i = 0;
+		DeclNodeIndex decl_idx = findDeclaration(parent_decl, stack->max_child_idx, adress[adress_idx].value);
 
-		for (auto& [name, decl_idx] : parent_decl.children) {
+		if (decl_idx != 0xFFFF'FFFF && decls[decl_idx].type == type) {
 
-			if (name != "" && name == adress[adress_idx].value) {
-
-				if (adress_idx == 0) {
-					return decl_idx;
-				}
-				else {
-					adress_idx--;
-					found_name = true;
-					break;
-				}
+			// save for later
+			if (adress_idx == last_adress_idx) {
+				r_decl_idx = decl_idx;
 			}
 
-			i++;
-
-			if (i >= stack->max_child_idx) {
-				break;
+			if (adress_idx == 0) {
+				return r_decl_idx;
+			}
+			else {
+				adress_idx--;
 			}
 		}
-
-		if (found_name == false) {
-			adress_idx = adress.size() - 1;
+		// break the chain, reset the lookup
+		else {
+			adress_idx = last_adress_idx;
 		}
 
 		stack = stack->prev;
@@ -99,6 +111,13 @@ DeclNodeIndex Resolve::resolveAdress(DeclarationStack& starting_stack, std::vect
 
 	return 0xFFFF'FFFF;
 }
+
+//bool Resolve::resolveType(DeclarationStack& parent_stack, AST_NodeIndex ast_node_idx)
+//{
+//	auto* type = getNode<AST_Type>(ast_node_idx);
+//
+//	return true;
+//}
 
 //bool Resolve::resolveExpression(DeclarationStack& parent_stack, AST_NodeIndex ast_node_idx)
 //{
@@ -112,7 +131,7 @@ bool Resolve::resolveStatements(DeclarationStack& parent_stack, AST_NodeIndex as
 	auto* statements = getNode<AST_Statements>(ast_node_idx);
 
 	DeclNodeIndex statements_decl_idx;
-	addDeclaration<AST_Statements>(parent_stack.decl, ast_node_idx, "", statements_decl_idx);
+	addDeclaration(parent_stack.decl, ast_node_idx, "", DeclarationType::scope, statements_decl_idx);
 
 	DeclarationStack stack;
 	stack.prev = &parent_stack;
@@ -129,18 +148,20 @@ bool Resolve::resolveStatements(DeclarationStack& parent_stack, AST_NodeIndex as
 			
 			DeclNodeIndex var_decl_idx;
 
-			if (addDeclaration<AST_VariableDeclaration>(statements_decl_idx, ast_statement_idx,
-				ast_var_decl->name.value, var_decl_idx) == false)
+			if (addDeclaration(statements_decl_idx, ast_statement_idx, ast_var_decl->name.value, DeclarationType::variable,
+				var_decl_idx) == false)
 			{
 				return false;
 			}
+
+
 
 			stack.max_child_idx++;
 		}
 		else if (std::holds_alternative<AST_VariableAssignment>(statement)) {
 
 			auto* assignment = getNode<AST_VariableAssignment>(ast_statement_idx);
-			assignment->decl_node = resolveAdress(stack, assignment->address);
+			assignment->decl_node = resolveAdress(stack, assignment->address, DeclarationType::variable);
 
 			if (assignment->decl_node == 0xFFFF'FFFF) {
 
@@ -159,9 +180,6 @@ bool Resolve::resolveStatements(DeclarationStack& parent_stack, AST_NodeIndex as
 
 				return false;
 			}
-		}
-		else {
-			__debugbreak();
 		}
 	}
 
@@ -184,8 +202,8 @@ bool Resolve::resolve()
 {
 	{
 		DeclNodeIndex stub;
-		// addDeclaration(0, 0xFFFF'FFFF, "u64", stub);
-		// addDeclaration(0, 0xFFFF'FFFF, "string", stub);
+		addDeclaration(0, 0xFFFF'FFFF, "u64", DeclarationType::type, stub);
+		addDeclaration(0, 0xFFFF'FFFF, "string", DeclarationType::type, stub);
 	}
 
 	gatherUnorderedDeclarations(0, 0);
@@ -221,8 +239,8 @@ void Resolve::_printDeclarations(DeclNodeIndex decl_idx, uint32_t depth)
 		decl->name.c_str()
 	);
 
-	for (auto child_decl : decl->children) {
-		_printDeclarations(child_decl.second, depth + 1);
+	for (auto child_decl_idx : decl->children) {
+		_printDeclarations(child_decl_idx, depth + 1);
 	}
 }
 

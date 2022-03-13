@@ -40,9 +40,9 @@ int main(int argument_count, char* argv[])
 			filesys::readFile(current_folder, bytes);
 			bytes.push_back('\0');
 
-			std::array<std::string, 1> files = {
+			/*std::array<std::string, 1> files = {
 				file_name
-			};
+			};*/
 
 			Resolve front_end;
 			front_end.init();
@@ -52,8 +52,9 @@ int main(int argument_count, char* argv[])
 			}
 
 			{
-				LexerPrintSettings settings;
-				front_end.lexer.print(settings);
+				// LexerPrintSettings settings;
+				// settings.show_selection = false;
+				// front_end.lexer.print(settings);
 			}		
 
 			{

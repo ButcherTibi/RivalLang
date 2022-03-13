@@ -18,7 +18,6 @@ enum class TokenTypes {
 	// Integer literals
 	i32,
 	i64,
-
 	u32,
 	u64,
 
@@ -26,14 +25,11 @@ enum class TokenTypes {
 	f32,
 	f64,
 
-	// hexadecimal, binary literals
-	number,
+	hexadecimal, // 0xFFAF 08E1	
+	binary, // 0b0101 0101
 
-	// string literal
 	STRING,
-
 	SYMBOL,
-
 	SPACING
 };
 
@@ -70,7 +66,7 @@ public:
 	bool isNumberLike();
 	bool isSymbol();
 	bool isSymbol(std::string other);
-	bool isExpressionSign();
+	bool isOperator();
 };
 
 struct LexerPrintSettings {

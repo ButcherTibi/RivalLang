@@ -3,24 +3,6 @@
 #include "Parser.hpp"
 
 
-void Parser::parseCompositeName(uint32_t& i, std::vector<Token>& r_name)
-{
-	while (i < lexer.tokens.size()) {
-
-		if (skipToIdentifierToken(i)) {
-			r_name.push_back(getToken(i));
-			i++;
-			
-			if (skipToSymbolToken(i, ".")) {
-				i++;
-				continue;
-			}
-		}
-
-		return;
-	}
-}
-
 void Parser::parseAdress(std::vector<Token>& r_adress)
 {
 	while (token_i < lexer.tokens.size()) {
@@ -42,181 +24,159 @@ void Parser::parseAdress(std::vector<Token>& r_adress)
 
 void Parser::parseModifiers(uint32_t& i, std::vector<Token>& r_modifiers)
 {
-	while (skipToIdentifierToken(i)) {
+	while (skipToIdentifier()) {
 		r_modifiers.push_back(getToken(i));
 		i++;
 	}
 }
 
-/* This is the Precedence Climbing Algorithm */
-bool Parser::_parseExpression(uint32_t& i, int32_t parent_precedence,
-	uint32_t& result)
+AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 {
-	// parse num (the left hand side of the branch to be created)
-	result = 0xFFFF'FFFF;
+	AST_NodeIndex ast_left_value;
 	{
-		uint32_t t;
+		if (skipToNumberLike()) {
 
-		if (skipToIdentifierToken(i, t)) {
-
-			i = t;
-
-			/*std::vector<Token> adress;
-			parseCompositeName(i, adress);*/
-
-			/*if (skipToSymbolToken(i, "(")) {
-
-				parseFunctionCall(0, t)
-			}*/
-
-			__debugbreak();
-		}
-		else if (skipToNumberToken(i, t)) {
-
-			i = t;
-			auto num = addNode<AST_Literal>(result);
-			num->token = getToken(i);
+			auto* num = addNode<AST_Literal>(ast_left_value);
+			num->token = getToken();
 			num->selection = num->token;
 		}
-		else if (skipToStringToken(i, t)) {
+		else if (skipToString()) {
 
-			i = t;
-			auto str = addNode<AST_Literal>(result);
-			str->token = getToken(i);
+			auto* str = addNode<AST_Literal>(ast_left_value);
+			str->token = getToken();
 			str->selection = str->token;
 		}
-		else if (skipToSymbolToken(i, "(", t)) {
+		else if (skipToSymbol("(")) {
 
-			i = t + 1;
-			if (_parseExpression(i, 0, result)) {
+			advanceToNextToken();
 
-				if (skipToSymbolToken(i, ")")) {
+			ast_left_value = _parseExpression(0);
+			if (ast_left_value != ast_invalid_idx) {
 
-					// result/lhs is fine
-				}
-				else {
-					errorUnexpectedToken("while looking for closing ')' in expression", i);
-					return false;
+				if (skipToSymbol(")") == false) {
+
+					errorUnexpectedToken("while looking for closing ')' in expression");
+					return ast_invalid_idx;
 				}
 			}
-			// bad expression in '('
+			// bad expression inside parentheses
 			else {
-				return false;
+				return ast_invalid_idx;
 			}
 		}
 		else {
-			__debugbreak();
+			return ast_invalid_idx;
 		}
 
-		i++;
+		advanceToNextToken();
 	}
 
 	while (true) {
 
-		uint32_t r_sign;
-		if (skipToExpressionSymbolToken(i, r_sign)) {
+		if (skipToOperator()) {
 
-			i = r_sign;
-
-			Token& sign_token = getToken(i);
+			Token& sign = getToken();
 
 			// current sign precedence
 			int32_t precedence;
 			{
-				if (sign_token.value == "+" || sign_token.value == "-") {
+				if (sign.value == "+" || sign.value == "-") {
 					precedence = 1;
 				}
-				else if (sign_token.value == "*" || sign_token.value == "/" || sign_token.value == "%") {
+				else if (sign.value == "*" || sign.value == "/" || sign.value == "%") {
 					precedence = 2;
 				}
 				else {
-					__debugbreak();
-					return false;
+					throw;
 				}
 			}
 
 			if (precedence >= parent_precedence) {
 
-				i++;
-				uint32_t rhs;  // right hand side
-				if (_parseExpression(i, precedence, rhs)) {
+				advanceToNextToken();
 
-					// join stuff
-					uint32_t sign_node_index;
+				AST_NodeIndex ast_right_value = _parseExpression(precedence);
+				if (ast_right_value != ast_invalid_idx) {
+
+					AST_NodeIndex ast_binary_op;
 					{
-						auto* binary_op = addNode<AST_BinaryOperator>(sign_node_index);
-						binary_op->assign(sign_token);
+						auto* binary_op = addNode<AST_BinaryOperator>(ast_binary_op);
+						binary_op->assign(sign);
 
-						/*
-								 sign
-								/    \
-							   /      \
-						  result      right
-						  (left)
-						*/
-						linkParentAndChild(sign_node_index, result);
-						linkParentAndChild(sign_node_index, rhs);
+						linkParentAndChild(ast_binary_op, ast_left_value);
+						linkParentAndChild(ast_binary_op, ast_right_value);
 					}
 
 					/*
-									 next_sign
-									/         \
-								   /           \
-							   sign             new_right
-							 (result)
-							/        \
-						   /          \
-					  old_result       right
-					  (left)
+									 next_operator
+									/             \
+								   /               \
+							now_left                new_right
+						   /        \
+						  /          \
+					  left            right
 					*/
-					result = sign_node_index;
+					ast_left_value = ast_binary_op;
 				}
-				// error
 				else {
-					return false;
+					
+					return ast_invalid_idx;
 				}
 			}
 			// change of precedence
-			else {			
-				return true;
+			else {
+				return ast_left_value;
 			}
 		}
 		// end of sub expression
 		else {
-			return true;
+			return ast_left_value;
 		}
 	}
-
-	__debugbreak();
-	return false;
 }
 
-bool Parser::parseExpression(uint32_t parent_node_index, uint32_t& i,
-	uint32_t& r_expression)
+AST_NodeIndex Parser::parseExpression(AST_NodeIndex ast_parent_idx)
 {
+	AST_NodeIndex r_expression;
 	{
-		auto expr = addNode<AST_Expression>(parent_node_index, r_expression);
-		expr->setStart(getToken(i));
+		auto* expr = addNode<AST_Expression>(ast_parent_idx, r_expression);
+		expr->setStart(getToken());
 	}
 
-	uint32_t expression_root;
-	if (_parseExpression(i, 0, expression_root)) {
+	AST_NodeIndex expression_root = _parseExpression(0);
+	if (expression_root != ast_invalid_idx) {
 
-		if (expression_root == 0xFFFF'FFFF) {
-			errorUnexpectedToken("at expression start", i);
-			return false;
-		}
-		else {
+		linkParentAndChild(r_expression, expression_root);
+
+		auto expr = getBaseNode(r_expression);
+		expr->setEnd(getToken(token_i - 1));
+
+		return r_expression;
+	}
+	else {
+		return ast_invalid_idx;
+	}
+
+	/*uint32_t expression_root;
+	if (_parseExpression(token_i, 0, expression_root)) {
+
+		if (expression_root != 0xFFFF'FFFF) {
+
 			linkParentAndChild(r_expression, expression_root);
 
 			auto expr = getBaseNode(r_expression);
-			expr->setEnd(getToken(i));
-			return true;
+			expr->setEnd(getToken(token_i - 1));
+
+			return r_expression;
+		}
+		else {
+			errorUnexpectedToken("at expression start");
+			return ast_invalid_idx;
 		}
 	}
 	else {
-		return false;
-	}
+		return ast_invalid_idx;
+	}*/
 }
 
 AST_NodeIndex Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index)
@@ -235,16 +195,16 @@ AST_NodeIndex Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index)
 
 		if (skipToIdentifier()) {
 
-			AST_NodeIndex type;
-			if (parseType(r_var_decl_idx, token_i, type)) {
+			AST_NodeIndex type = parseType(r_var_decl_idx);
+			if (type != ast_invalid_idx) {
 
 				// default value assignment
 				if (skipToSymbol("=")) {
 
 					advanceToNextToken();
 
-					AST_NodeIndex default_expr;
-					if (parseExpression(r_var_decl_idx, token_i, default_expr)) {
+					AST_NodeIndex default_expr = parseExpression(r_var_decl_idx);
+					if (default_expr != ast_invalid_idx) {
 
 						auto var_decl = getNode<AST_VariableDeclaration>(r_var_decl_idx);
 						var_decl->type = type;
@@ -282,51 +242,60 @@ AST_NodeIndex Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index)
 	}
 }
 
-bool Parser::parseVariableAssignment(uint32_t parent_node_index, uint32_t& i,
-	uint32_t& r_assignment_node)
+AST_NodeIndex Parser::parseVariableAssignment(AST_NodeIndex ast_parent_idx)
 {
-	auto assignment = addNode<AST_VariableAssignment>(parent_node_index, r_assignment_node);
+	AST_NodeIndex r_assignment;
 
-	if (skipToIdentifierToken(i)) {
+	if (skipToIdentifier()) {
 
-		assignment->setStart(getToken(i));
+		{
+			auto* assignment = addNode<AST_VariableAssignment>(ast_parent_idx, r_assignment);
+			assignment->setStart(getToken());
 
-		parseCompositeName(i, assignment->address);
+			parseAdress(assignment->address);
+		}
 
-		if (skipToSymbolToken(i, "=")) {
+		if (skipToSymbol("=")) {
 
-			i++;
+			advanceToNextToken();
 
-			uint32_t r_expression;
-			if (parseExpression(r_assignment_node, i, r_expression)) {
+			AST_NodeIndex value_expr_idx = parseExpression(r_assignment);
+			if (value_expr_idx != ast_invalid_idx) {
 
-				assignment = getNode<AST_VariableAssignment>(r_assignment_node);
-				assignment->setEnd(getToken(i));
-				return true;
+				auto* value_expr = getNode<AST_Expression>(value_expr_idx);
+
+				auto* assignment = getNode<AST_VariableAssignment>(r_assignment);
+				assignment->selection.end = value_expr->selection.end;
+
+				return r_assignment;
 			}
 			else {
-				return false;
+				return ast_invalid_idx;
 			}
 		}
 		else {
-			errorUnexpectedToken("while looking for equals in assignment", i);
-			return false;
+			errorUnexpectedToken("while looking for equals in assignment");
+			return ast_invalid_idx;
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for destination variable name in assignment", i);
-		return false;
+		errorUnexpectedToken("while looking for destination variable name in assignment");
+		return ast_invalid_idx;
 	}
 }
 
-bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, AST_NodeIndex& r_func_impl)
+AST_NodeIndex Parser::parseFunctionImplementation(AST_NodeIndex ast_parent_idx)
 {
+	AST_NodeIndex r_func_impl;
+
 	if (skipToIdentifier()) {
 
-		auto* func_impl = addNode<AST_FunctionImplementation>(parent_node_index, r_func_impl);
-		func_impl->setStart(getToken());
+		{
+			auto* func_impl = addNode<AST_FunctionImplementation>(ast_parent_idx, r_func_impl);
+			func_impl->setStart(getToken());
 
-		parseAdress(func_impl->name);
+			parseAdress(func_impl->name);
+		}
 
 		if (skipToSymbol("(")) {
 
@@ -343,7 +312,7 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, AST_No
 					AST_NodeIndex var_decl_idx = parseVariableDeclaration(r_func_impl);
 					if (var_decl_idx != ast_invalid_idx) {
 
-						func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
+						auto* func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
 						func_impl->params.push_back(var_decl_idx);
 
 						if (skipToSymbol(",")) {
@@ -355,11 +324,11 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, AST_No
 						}
 						else {
 							errorUnexpectedToken("while looking for function parameter");
-							return false;
+							return ast_invalid_idx;
 						}
 					}
 					else {
-						return false;
+						return ast_invalid_idx;
 					}
 				}
 			}
@@ -367,18 +336,18 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, AST_No
 			// function HAS a return type
 			if (skipToSymbol("{") == false) {
 
-				AST_NodeIndex return_type;
-				if (parseType(r_func_impl, token_i, return_type)) {
+				AST_NodeIndex return_type = parseType(r_func_impl);
+				if (return_type != ast_invalid_idx) {
 
-					func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
+					auto* func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
 					func_impl->returns = return_type;
 				}
 				else {
-					return false;
+					return ast_invalid_idx;
 				}
 			}
 			else {
-				func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
+				auto* func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
 				func_impl->returns = 0xFFFF'FFFF;
 			}
 
@@ -386,206 +355,193 @@ bool Parser::parseFunctionImplementation(AST_NodeIndex parent_node_index, AST_No
 			AST_NodeIndex ast_statements_idx = parseStatements(r_func_impl);
 			if (ast_statements_idx != ast_invalid_idx) {
 
-				func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
-				func_impl->statements = ast_statements_idx;
-
 				auto* ast_statements = getNode<AST_Statements>(ast_statements_idx);
+
+				auto* func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
+				func_impl->statements = ast_statements_idx;
 				func_impl->selection.end = ast_statements->selection.end;
-				return true;
+
+				return r_func_impl;
 			}
 			else {
-				return false;
+				return ast_invalid_idx;
 			}
 		}
 		else {
 			errorUnexpectedToken("while looking for function parameters");
-			return false;
+			return ast_invalid_idx;
 		}
 	}
 	else {
 		errorUnexpectedToken("while looking for function name");
-		return false;
+		return ast_invalid_idx;
 	}
 }
 
-bool Parser::parseFunctionCall(uint32_t parent_node_index, uint32_t& i,
-	uint32_t& r_func_call_node)
+AST_NodeIndex Parser::parseFunctionCall(AST_NodeIndex ast_parent_idx)
 {
-	auto func_call = addNode<AST_FunctionCall>(parent_node_index, r_func_call_node);
+	AST_NodeIndex r_func_call;
 
-	uint32_t new_i;
+	if (skipToIdentifier()) {
 
-	if (skipToIdentifierToken(i, new_i)) {
+		{
+			auto* func_call = addNode<AST_FunctionCall>(ast_parent_idx, r_func_call);
+			func_call->setStart(getToken());
 
-		i = new_i;
-		func_call->setStart(getToken(i));
-		parseCompositeName(i, func_call->address);
+			parseAdress(func_call->address);
+		}
 
-		if (skipToSymbolToken(i, "(", new_i)) {
+		if (skipToSymbol("(")) {
 
-			i = new_i;
-			i++;
+			advanceToNextToken();
 			
 			// function call has no arguments
-			if (skipToSymbolToken(i, ")", new_i)) {
-				i = new_i;
+			if (skipToSymbol(")")) {
+				
+				auto* func_call = getNode<AST_FunctionCall>(r_func_call);
+				func_call->setEnd(getToken());
+
+				advanceToNextToken();
+				return r_func_call;
 			}
 			// parse function arguments
 			else {
 				while (true) {
 
-					uint32_t expr;
-					if (parseExpression(r_func_call_node, i, expr)) {
+					AST_NodeIndex argument = parseExpression(r_func_call);
+					if (argument != ast_invalid_idx) {
 
-						if (skipToSymbolToken(i, ",", new_i)) {
-
-							i = new_i + 1;
+						if (skipToSymbol(",")) {
+							advanceToNextToken();
 						}
-						else if (skipToSymbolToken(i, ")", new_i)) {
-							i = new_i + 1;
-							break;
+						else if (skipToSymbol(")")) {
+
+							auto* func_call = getNode<AST_FunctionCall>(r_func_call);
+							func_call->setEnd(getToken());
+
+							advanceToNextToken();
+							return r_func_call;
 						}
 						else {
-							errorUnexpectedToken("while looking for function argument", new_i);
-							return false;
+							errorUnexpectedToken("while looking for function argument");
+							return ast_invalid_idx;
 						}
 					}
 					else {
-						return false;
+						return ast_invalid_idx;
 					}
 				}
-
-				func_call = getNode<AST_FunctionCall>(r_func_call_node);
-				func_call->setEnd(getToken(i));
-				return true;
 			}
 
-			parseModifiers(i, func_call->modifiers_tokens);
-
-			func_call = getNode<AST_FunctionCall>(r_func_call_node);
-			func_call->setEnd(getToken(i));
-			return true;
+			throw;
 		}
 		else {
-			errorUnexpectedToken("while looking for opening '(' in function call", new_i);
-			return false;
+			errorUnexpectedToken("while looking for opening '(' in function call");
+			return ast_invalid_idx;
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for function name in function call", new_i);
-		return false;
+		errorUnexpectedToken("while looking for function name in function call");
+		return ast_invalid_idx;
 	}
 }
 
-bool Parser::parseStatement(AST_NodeIndex parent, uint32_t& i,
-	AST_NodeIndex& r_statement)
+AST_NodeIndex Parser::parseStatement(AST_NodeIndex parent)
 {
-	uint32_t new_i;
+	AST_NodeIndex r_statement;
 
 	auto check_for_statement_end = [&]() -> bool {
 
-		if (skipToSymbolToken(i, ";", new_i)) {
-			i = new_i + 1;
-			return true;
+		if (skipToSymbol(";")) {
+
+			advanceToNextToken();
+			return r_statement;
 		}
 		else {
-			errorUnexpectedToken("while looking for statement end", i);
-			return false;
+			errorUnexpectedToken("while looking for statement end");
+			return ast_invalid_idx;
 		}
 	};
 
-	if (skipToIdentifierToken(i, new_i)) {
+	auto check_statement = [&](AST_NodeIndex ast_statement_idx) -> AST_NodeIndex {
 
-		i = new_i;
-		uint32_t name_token = i;
+		if (ast_statement_idx != ast_invalid_idx) {
 
-		if (isSimpleName(i)) {
+			if (skipToSymbol(";")) {
 
-			i++;
-
-			// variable declaration:
-			// simple_name type_identifier
-			if (skipToIdentifierToken(i, new_i)) {
-
-				i = name_token;
-
-				r_statement = parseVariableDeclaration(parent);
-				if (r_statement != ast_invalid_idx) {
-					return check_for_statement_end();
-				}
-				else {
-					return false;
-				}
-			}
-			// variable assignment
-			// name =
-			else if (skipToSymbolToken(i, "=", new_i)) {
-
-				i = name_token;
-
-				if (parseVariableAssignment(parent, i, r_statement)) {
-					return check_for_statement_end();
-				}
-				else {
-					return false;
-				}
-			}
-			// function call
-			// name(
-			else if (skipToSymbolToken(i, "(", new_i)) {
-
-				i = name_token;
-
-				if (parseFunctionCall(parent, i, r_statement)) {
-					return check_for_statement_end();
-				}
-				else {
-					return false;
-				}
+				advanceToNextToken();
+				return ast_statement_idx;
 			}
 			else {
-				errorUnexpectedToken("after identifier in statement", new_i);
-				return false;
+				errorUnexpectedToken("while looking for statement end");
+				return ast_invalid_idx;
 			}
 		}
 		else {
-			skipPastCompositeName(i);
+			return ast_invalid_idx;
+		}
+	};
 
+	if (skipToIdentifier()) {
+
+		uint32_t name_token = token_i;
+
+		if (isAtAdress() == false) {
+
+			advanceToNextToken();
+
+			// variable declaration:
+			// simple_name type_identifier
+			if (skipToIdentifier()) {
+
+				token_i = name_token;
+				return check_statement(parseVariableDeclaration(parent));
+			}
 			// variable assignment
 			// name =
-			if (skipToSymbolToken(i, "=", new_i)) {
+			else if (skipToSymbol("=")) {
 
-				i = name_token;
-
-				if (parseVariableAssignment(parent, i, r_statement)) {
-					return check_for_statement_end();
-				}
-				else {
-					return false;
-				}
+				token_i = name_token;
+				return check_statement(parseVariableAssignment(parent));
 			}
 			// function call
 			// name(
-			else if (skipToSymbolToken(i, "(", new_i)) {
+			else if (skipToSymbol("(")) {
 
-				i = name_token;
-
-				if (parseFunctionCall(parent, i, r_statement)) {
-					return check_for_statement_end();
-				}
-				else {
-					return false;
-				}
+				token_i = name_token;
+				return check_statement(parseFunctionCall(parent));
 			}
 			else {
-				errorUnexpectedToken("after identifier in statement", new_i);
-				return false;
+				errorUnexpectedToken("after identifier in statement");
+				return ast_invalid_idx;
+			}
+		}
+		else {
+			skipPastAdress();
+
+			// variable assignment
+			// name =
+			if (skipToSymbol("=")) {
+
+				token_i = name_token;
+				return check_statement(parseVariableAssignment(parent));
+			}
+			// function call
+			// name(
+			else if (skipToSymbol("(")) {
+
+				token_i = name_token;
+				return check_statement(parseFunctionCall(parent));
+			}
+			else {
+				errorUnexpectedToken("after identifier in statement");
+				return ast_invalid_idx;
 			}
 		}
 	}
 	else {
-		pushError("Unrecognized statement", new_i);
-		return false;
+		pushError("Unrecognized statement");
+		return ast_invalid_idx;
 	}
 }
 
@@ -614,8 +570,8 @@ AST_NodeIndex Parser::parseStatements(AST_NodeIndex ast_parent_idx)
 				return r_statements;
 			}
 
-			uint32_t statement;
-			if (parseStatement(r_statements, token_i, statement) == false) {
+			AST_NodeIndex statement = parseStatement(r_statements);
+			if (statement == ast_invalid_idx) {
 				return ast_invalid_idx;
 			}
 		}
@@ -628,58 +584,58 @@ AST_NodeIndex Parser::parseStatements(AST_NodeIndex ast_parent_idx)
 	throw;
 }
 
-bool Parser::parseType(uint32_t parent_node_index, uint32_t& i,
-	uint32_t& r_type)
+AST_NodeIndex Parser::parseType(AST_NodeIndex ast_parent)
 {
-	auto* type = addNode<AST_Type>(parent_node_index, r_type);
+	AST_NodeIndex r_type;
+	
+	if (skipToIdentifier()) {
 
-	if (skipToIdentifierToken(i)) {
+		{
+			auto* type = addNode<AST_Type>(ast_parent, r_type);
+			type->name = getToken();
+			type->setStart(type->name);
+		}
 
-		type->name = getToken(i);
-		type->setStart(type->name);
-		i++;
+		advanceToNextToken();
 
 		// type has template arguments
-		if (skipToSymbolToken(i, "<")) {
+		if (skipToSymbol("<")) {
 
-			i++;
+			advanceToNextToken();
 
 			while (true) {
 
-				uint32_t child_node;
-				if (parseType(r_type, i, child_node) == false) {
-					return false;
+				if (parseType(r_type) == ast_invalid_idx) {
+					return ast_invalid_idx;
 				}
 
-				if (skipToSymbolToken(i, ",")) {
-					i++;
+				if (skipToSymbol(",")) {
+					advanceToNextToken();
 				}
-				else if (skipToSymbolToken(i, ">")) {
+				else if (skipToSymbol(">")) {
 
-					i++;
+					advanceToNextToken();
 
-					type = getNode<AST_Type>(r_type);
-					type->setEnd(getToken(i));
-					return true;
+					auto* type = getNode<AST_Type>(r_type);
+					type->setEnd(getToken());
+					return r_type;
 				}
 				else {
-					errorUnexpectedToken("while looking for template argument", i);
-					return false;
+					errorUnexpectedToken("while looking for template argument");
+					return ast_invalid_idx;
 				}
 			}
 		}
 		else {
-			type = getNode<AST_Type>(r_type);
-			type->setEnd(getToken(i));
-			return true;
+			auto* type = getNode<AST_Type>(r_type);
+			type->setEnd(getToken());
+			return r_type;
 		}
 	}
 	else {
-		errorUnexpectedToken("unexpected symbol while looking for type name", i);
-		return false;
+		errorUnexpectedToken("unexpected symbol while looking for type name");
+		return ast_invalid_idx;
 	}
-
-	__debugbreak();
 }
 
 AST_NodeIndex Parser::parseDeclaration(AST_NodeIndex ast_parent)
@@ -747,13 +703,7 @@ AST_NodeIndex Parser::parseDeclaration(AST_NodeIndex ast_parent)
 					if (skipToSymbol("{")) {
 
 						token_i = name_token;
-
-						if (parseFunctionImplementation(ast_parent, r_declaration)) {
-							return r_declaration;
-						}
-						else {
-							return ast_invalid_idx;
-						}
+						return parseFunctionImplementation(ast_parent);
 					}
 					// function declaration
 					// no return type and no modifiere

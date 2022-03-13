@@ -1,5 +1,4 @@
 
 main() {
-	var_0 u64 = 1;
-	var_1 string = "text";
+	a u64 = 1 + 2 + 3;
 }

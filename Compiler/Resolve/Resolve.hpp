@@ -81,6 +81,11 @@ public:
 
 	bool resolve();
 
+	
+	/* Resolve Error */
+
+	void logResolveError(std::string text, std::vector<Token>& adress);
+
 
 	// Debug
 	void _printDeclarations(DeclNodeIndex scope_idx, uint32_t depth);

@@ -145,7 +145,7 @@ struct AST_Statements : AST_BaseNode {
 // Type ////////////////////////////////////////////////////////////////////////////
 
 struct AST_Type : AST_BaseNode {
-	Token name;
+	std::vector<Token> address;
 
 	std::string toString() override;
 };
@@ -291,8 +291,6 @@ public:
 	/* Check functions */
 
 	// checks if the identifier is not followed by '.' or other symbols
-	bool isSimpleName(uint32_t token_index);
-
 	bool isAtAdress();
 
 
@@ -355,15 +353,14 @@ public:
 	AST_NodeIndex parseSourceFile();
 
 
-	/* Error */
+	/* Parse Error */
 
-	void pushError(std::string error_mesage, TokenIndex token_index);
-	void pushError(std::string error_mesage);
+	void logParseError(std::string error_mesage, TokenIndex unexpected_token_idx);
 
-	// "unexpected token '{token.value}' "
-	void errorUnexpectedToken(std::string error_mesage, Token& unexpected_token);
-	void errorUnexpectedToken(std::string error_mesage, TokenIndex unexpected_token);
-	void errorUnexpectedToken(std::string error_mesage);
+	void logParseError(std::string error_mesage);
+
+	// "unexpected token '{token.value}' {error_mesage}"
+	void logParseError_UnexpectedToken(std::string error_mesage);
 
 
 

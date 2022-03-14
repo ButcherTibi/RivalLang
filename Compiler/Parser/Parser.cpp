@@ -34,7 +34,44 @@ AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 {
 	AST_NodeIndex ast_left_value;
 	{
-		if (skipToNumberLike()) {
+		if (skipToIdentifier()) {
+
+			TokenIndex begin_adress = token_i;
+
+			if (isAtAdress() == false) {
+
+				advanceToNextToken();
+
+				// function call
+				if (skipToSymbol("(")) {
+
+				}
+				// variable
+				else if (skipToOperator()) {
+
+				}
+				else {
+					throw;
+				}
+			}
+			else {
+				std::vector<Token> adress;
+				parseAdress(adress);
+
+				// function call
+				if (skipToSymbol("(")) {
+
+				}
+				// variable
+				else if (skipToOperator()) {
+
+				}
+				else {
+					throw;
+				}
+			}
+		}
+		else if (skipToNumberLike()) {
 
 			auto* num = addNode<AST_Literal>(ast_left_value);
 			num->token = getToken();
@@ -55,7 +92,7 @@ AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 
 				if (skipToSymbol(")") == false) {
 
-					errorUnexpectedToken("while looking for closing ')' in expression");
+					logParseError_UnexpectedToken("while looking for closing ')' in expression");
 					return ast_invalid_idx;
 				}
 			}
@@ -214,7 +251,7 @@ AST_NodeIndex Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index)
 						return r_var_decl_idx;
 					}
 					else {
-						pushError("Error in default variable value in variable declaration", token_i);
+						logParseError("Error in default variable value in variable declaration", token_i);
 						return ast_invalid_idx;
 					}
 				}
@@ -226,17 +263,17 @@ AST_NodeIndex Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index)
 				return r_var_decl_idx;
 			}
 			else {
-				pushError("Error in variable type in variable declaration");
+				logParseError("Error in variable type in variable declaration");
 				return ast_invalid_idx;
 			}
 		}
 		else {
-			errorUnexpectedToken("while looking for variable type in variable declaration");
+			logParseError_UnexpectedToken("while looking for variable type in variable declaration");
 			return ast_invalid_idx;
 		}
 	}
 	else {
-		errorUnexpectedToken(
+		logParseError_UnexpectedToken(
 			"while looking for variable name in variable declaration");
 		return ast_invalid_idx;
 	}
@@ -274,12 +311,12 @@ AST_NodeIndex Parser::parseVariableAssignment(AST_NodeIndex ast_parent_idx)
 			}
 		}
 		else {
-			errorUnexpectedToken("while looking for equals in assignment");
+			logParseError_UnexpectedToken("while looking for equals in assignment");
 			return ast_invalid_idx;
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for destination variable name in assignment");
+		logParseError_UnexpectedToken("while looking for destination variable name in assignment");
 		return ast_invalid_idx;
 	}
 }
@@ -323,7 +360,7 @@ AST_NodeIndex Parser::parseFunctionImplementation(AST_NodeIndex ast_parent_idx)
 							break;
 						}
 						else {
-							errorUnexpectedToken("while looking for function parameter");
+							logParseError_UnexpectedToken("while looking for function parameter");
 							return ast_invalid_idx;
 						}
 					}
@@ -368,12 +405,12 @@ AST_NodeIndex Parser::parseFunctionImplementation(AST_NodeIndex ast_parent_idx)
 			}
 		}
 		else {
-			errorUnexpectedToken("while looking for function parameters");
+			logParseError_UnexpectedToken("while looking for function parameters");
 			return ast_invalid_idx;
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for function name");
+		logParseError_UnexpectedToken("while looking for function name");
 		return ast_invalid_idx;
 	}
 }
@@ -423,7 +460,7 @@ AST_NodeIndex Parser::parseFunctionCall(AST_NodeIndex ast_parent_idx)
 							return r_func_call;
 						}
 						else {
-							errorUnexpectedToken("while looking for function argument");
+							logParseError_UnexpectedToken("while looking for function argument");
 							return ast_invalid_idx;
 						}
 					}
@@ -436,12 +473,12 @@ AST_NodeIndex Parser::parseFunctionCall(AST_NodeIndex ast_parent_idx)
 			throw;
 		}
 		else {
-			errorUnexpectedToken("while looking for opening '(' in function call");
+			logParseError_UnexpectedToken("while looking for opening '(' in function call");
 			return ast_invalid_idx;
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for function name in function call");
+		logParseError_UnexpectedToken("while looking for function name in function call");
 		return ast_invalid_idx;
 	}
 }
@@ -458,7 +495,7 @@ AST_NodeIndex Parser::parseStatement(AST_NodeIndex parent)
 			return r_statement;
 		}
 		else {
-			errorUnexpectedToken("while looking for statement end");
+			logParseError_UnexpectedToken("while looking for statement end");
 			return ast_invalid_idx;
 		}
 	};
@@ -473,7 +510,7 @@ AST_NodeIndex Parser::parseStatement(AST_NodeIndex parent)
 				return ast_statement_idx;
 			}
 			else {
-				errorUnexpectedToken("while looking for statement end");
+				logParseError_UnexpectedToken("while looking for statement end");
 				return ast_invalid_idx;
 			}
 		}
@@ -512,7 +549,7 @@ AST_NodeIndex Parser::parseStatement(AST_NodeIndex parent)
 				return check_statement(parseFunctionCall(parent));
 			}
 			else {
-				errorUnexpectedToken("after identifier in statement");
+				logParseError_UnexpectedToken("after identifier in statement");
 				return ast_invalid_idx;
 			}
 		}
@@ -534,13 +571,13 @@ AST_NodeIndex Parser::parseStatement(AST_NodeIndex parent)
 				return check_statement(parseFunctionCall(parent));
 			}
 			else {
-				errorUnexpectedToken("after identifier in statement");
+				logParseError_UnexpectedToken("after identifier in statement");
 				return ast_invalid_idx;
 			}
 		}
 	}
 	else {
-		pushError("Unrecognized statement");
+		logParseError("Unrecognized statement");
 		return ast_invalid_idx;
 	}
 }
@@ -577,7 +614,7 @@ AST_NodeIndex Parser::parseStatements(AST_NodeIndex ast_parent_idx)
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for scope start symbol '{'");
+		logParseError_UnexpectedToken("while looking for scope start symbol '{'");
 		return ast_invalid_idx;
 	}
 
@@ -592,11 +629,9 @@ AST_NodeIndex Parser::parseType(AST_NodeIndex ast_parent)
 
 		{
 			auto* type = addNode<AST_Type>(ast_parent, r_type);
-			type->name = getToken();
-			type->setStart(type->name);
+			parseAdress(type->address);
+			type->setStart(type->address[0]);
 		}
-
-		advanceToNextToken();
 
 		// type has template arguments
 		if (skipToSymbol("<")) {
@@ -621,7 +656,7 @@ AST_NodeIndex Parser::parseType(AST_NodeIndex ast_parent)
 					return r_type;
 				}
 				else {
-					errorUnexpectedToken("while looking for template argument");
+					logParseError_UnexpectedToken("while looking for template argument");
 					return ast_invalid_idx;
 				}
 			}
@@ -633,7 +668,7 @@ AST_NodeIndex Parser::parseType(AST_NodeIndex ast_parent)
 		}
 	}
 	else {
-		errorUnexpectedToken("unexpected symbol while looking for type name");
+		logParseError_UnexpectedToken("unexpected symbol while looking for type name");
 		return ast_invalid_idx;
 	}
 }
@@ -664,7 +699,7 @@ AST_NodeIndex Parser::parseDeclaration(AST_NodeIndex ast_parent)
 						return r_declaration;
 					}
 					else {
-						errorUnexpectedToken("while looking for variable declaration end");
+						logParseError_UnexpectedToken("while looking for variable declaration end");
 						return ast_invalid_idx;
 					}
 				}
@@ -713,19 +748,19 @@ AST_NodeIndex Parser::parseDeclaration(AST_NodeIndex ast_parent)
 						__debugbreak();
 					}
 					else {
-						errorUnexpectedToken(
+						logParseError_UnexpectedToken(
 							"after function declaration/implementation parameter list");
 						return ast_invalid_idx;
 					}
 				}
 				else {
-					errorUnexpectedToken(
+					logParseError_UnexpectedToken(
 						"while looking for closing ')' in function declaration/implementation");
 					return ast_invalid_idx;
 				}
 			}
 			else {
-				errorUnexpectedToken("after identifier in statement");
+				logParseError_UnexpectedToken("after identifier in statement");
 				return ast_invalid_idx;
 			}
 		}
@@ -736,7 +771,7 @@ AST_NodeIndex Parser::parseDeclaration(AST_NodeIndex ast_parent)
 		}
 	}
 	else {
-		errorUnexpectedToken("while looking for declaration");
+		logParseError_UnexpectedToken("while looking for declaration");
 		return ast_invalid_idx;
 	}
 
@@ -768,24 +803,6 @@ AST_NodeIndex Parser::parseSourceFile()
 	throw;
 }
 
-bool Parser::isSimpleName(uint32_t token_index)
-{
-	Token& token = getToken(token_index + 1);
-
-	if (token.isSpacing()) {
-		return true;
-	}
-	else if (token.isSymbol()) {
-
-		if (token.value == "." || token.value == "<") {
-			return false;
-		}
-		return true;
-	}
-
-	return false;
-}
-
 bool Parser::isAtAdress()
 {
 	Token& token = getToken(token_i + 1);
@@ -804,7 +821,7 @@ bool Parser::isAtAdress()
 	return true;
 }
 
-void Parser::pushError(std::string error_mesage, TokenIndex token_index)
+void Parser::logParseError(std::string error_mesage, TokenIndex token_index)
 {
 	auto& message = messages.emplace_back();
 	message.severity = MessageSeverity::Error;
@@ -814,7 +831,7 @@ void Parser::pushError(std::string error_mesage, TokenIndex token_index)
 	row_0.selection = getToken(token_index);
 }
 
-void Parser::pushError(std::string error_mesage)
+void Parser::logParseError(std::string error_mesage)
 {
 	auto& message = messages.emplace_back();
 	message.severity = MessageSeverity::Error;
@@ -824,23 +841,7 @@ void Parser::pushError(std::string error_mesage)
 	row_0.selection = getToken(unexpected_idx);
 }
 
-void Parser::errorUnexpectedToken(std::string error_mesage, Token& unexpected_token)
-{
-	auto& message = messages.emplace_back();
-	message.severity = MessageSeverity::Error;
-
-	auto& row_0 = message.rows.emplace_back();
-	row_0.text = std::format("Encountered unexpected token '{}' {}",
-		unexpected_token.value, error_mesage);
-	row_0.selection = unexpected_token;
-}
-
-void Parser::errorUnexpectedToken(std::string error_mesage, TokenIndex unexpected_token)
-{
-	errorUnexpectedToken(error_mesage, getToken(unexpected_token));
-}
-
-void Parser::errorUnexpectedToken(std::string error_mesage)
+void Parser::logParseError_UnexpectedToken(std::string error_mesage)
 {
 	auto& message = messages.emplace_back();
 	message.severity = MessageSeverity::Error;

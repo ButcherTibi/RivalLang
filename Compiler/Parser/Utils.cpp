@@ -60,7 +60,7 @@ std::string AST_SourceFile::toString()
 
 std::string AST_Type::toString()
 {
-	std::string str = std::string("Type ") + name.value;
+	std::string str = std::string("Type ") + getAdressName(address);
 	return str;
 }
 

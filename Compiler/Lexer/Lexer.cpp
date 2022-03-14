@@ -43,8 +43,16 @@ std::string toStringTokenTypes(TokenTypes token_type)
 
 void CodeSelection::operator=(const Token& token)
 {
+	file_index = token.selection.file_index;
 	start = token.selection.start;
 	end = token.selection.end;
+}
+
+void CodeSelection::operator=(const std::vector<Token>& address)
+{
+	file_index = address.front().selection.file_index;
+	start = address.front().selection.start;
+	end = address.back().selection.end;
 }
 
 void Token::start(const Lexer* lexer)

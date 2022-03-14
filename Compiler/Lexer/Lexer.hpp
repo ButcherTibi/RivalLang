@@ -47,7 +47,11 @@ struct CodeSelection {
 	SourceCodePosition start;
 	SourceCodePosition end;
 
+public:
+	CodeSelection() = default;
+
 	void operator=(const Token&);
+	void operator=(const std::vector<Token>&);
 };
 
 struct Token {

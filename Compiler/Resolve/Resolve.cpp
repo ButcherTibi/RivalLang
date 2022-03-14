@@ -154,7 +154,19 @@ bool Resolve::resolveStatements(DeclarationStack& parent_stack, AST_NodeIndex as
 				return false;
 			}
 
+			auto* ast_type = getNode<AST_Type>(ast_var_decl->type);
 
+			DeclNodeIndex type_decl_idx = resolveAdress(stack, ast_type->address, DeclarationType::type);
+			if (type_decl_idx == 0xFFFF'FFFF) {
+
+				logResolveError(std::format(
+					"Unresolved type '{}' in variable declaration",
+					getAdressName(ast_type->address)),
+					ast_type->address
+				);
+
+				return false;
+			}
 
 			stack.max_child_idx++;
 		}
@@ -165,18 +177,11 @@ bool Resolve::resolveStatements(DeclarationStack& parent_stack, AST_NodeIndex as
 
 			if (assignment->decl_node == 0xFFFF'FFFF) {
 
-				CompilerMessage& message =  messages.emplace_back();
-				message.severity = MessageSeverity::Error;
-
-				MessageRow& row = message.rows.emplace_back();
-				row.text = std::format(
-					"Unresolved symbol '{}' in '{}'",
-					getAdressName(assignment->address),
-					getFullName(statements_decl_idx)
+				logResolveError(std::format(
+					"Unresolved destination variable '{}' in assignment",
+					getAdressName(assignment->address)),
+					assignment->address
 				);
-
-				row.selection.start = assignment->address.front().selection.start;
-				row.selection.end = assignment->address.back().selection.end;
 
 				return false;
 			}

@@ -78,8 +78,9 @@ int main(int argument_count, char* argv[])
 
 					for (MessageRow& row : message.rows) {
 
-						printf("(%d, %d) %s \n",
+						printf("(%d, %d | %d, %d) %s \n",
 							row.selection.start.line, row.selection.start.column,
+							row.selection.end.line, row.selection.end.column,
 							row.text.c_str());
 					}
 				}

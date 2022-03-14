@@ -101,3 +101,13 @@ bool Resolve::addDeclaration(DeclNodeIndex parent_decl_idx,
 		return true;
 	}
 }
+
+void Resolve::logResolveError(std::string text, std::vector<Token>& adress)
+{
+	CompilerMessage& message = messages.emplace_back();
+	message.severity = MessageSeverity::Error;
+
+	MessageRow& row = message.rows.emplace_back();
+	row.text = text;
+	row.selection = adress;
+}

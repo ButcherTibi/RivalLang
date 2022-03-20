@@ -21,7 +21,7 @@ std::string Resolve::getFullName(DeclNodeIndex decl_idx)
 		return false;
 	};
 
-	while (decl_idx != 0xFFFF'FFFF) {
+	while (decl_idx != 0) {
 
 		DeclarationNode* node = getDeclaration(decl_idx);
 

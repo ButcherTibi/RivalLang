@@ -91,6 +91,13 @@ bool Token::isNumberLike()
 		type == TokenTypes::binary;
 }
 
+bool Token::isSignedInteger()
+{
+	return
+		type == TokenTypes::i32 ||
+		type == TokenTypes::i64;
+}
+
 bool Token::isSymbol()
 {
 	return type == TokenTypes::SYMBOL;
@@ -111,6 +118,18 @@ bool Token::isOperator()
 			value == "/" ||
 			value == "%")
 		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool Token::isOperatorOverload()
+{
+	if (type == TokenTypes::IDENTIFIER) {
+
+		if (value == "operator") {
 			return true;
 		}
 	}

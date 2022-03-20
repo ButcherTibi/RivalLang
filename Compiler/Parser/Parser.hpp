@@ -2,9 +2,6 @@
 
 // Standard
 #include <variant>
-#include <typeinfo>
-#include <unordered_map>
-#include <map>
 
 // Mine
 #include "../Lexer/Lexer.hpp"
@@ -14,6 +11,7 @@ typedef uint32_t AST_NodeIndex;
 typedef uint32_t DeclNodeIndex;
 
 const AST_NodeIndex ast_invalid_idx = 0xFFFF'FFFF;
+const DeclNodeIndex decl_invalid_idx = 0xFFFF'FFFF;
 
 
 // Base class for all abstract syntax tree nodes, never used on its own
@@ -56,7 +54,7 @@ struct AST_SourceFile : AST_BaseNode {
 // Expression ///////////////////////////////////////////////////////////////////////
 
 // Expression used in assignment or function call
-struct AST_Expression : AST_BaseNode {
+struct AST_Expression : AST_BaseNode, AST_Value {
 	std::string toString() override {
 		return "Expression"s;
 	};
@@ -100,6 +98,8 @@ public:
 struct AST_Variable : AST_BaseNode, AST_Value {
 	std::vector<Token> address;  // name of the variable
 
+	AST_NodeIndex ast_var_decl;  // the variable declaration that originated the variable
+
 	std::string toString() override;
 };
 
@@ -117,7 +117,7 @@ struct AST_VariableAssignment : AST_BaseNode {
 struct AST_FunctionImplementation : AST_BaseNode, AST_Declaration {
 	std::vector<Token> name;
 	std::vector<AST_NodeIndex> params;
-	AST_NodeIndex returns;
+	AST_NodeIndex return_type;
 	std::vector<Token> modifiers;
 	AST_NodeIndex statements;
 
@@ -141,17 +141,36 @@ struct AST_Statements : AST_BaseNode {
 	std::string toString() override;
 };
 
+struct AST_OperatorOverload : AST_BaseNode {
+	Token op;
+	AST_NodeIndex left_operand;
+	AST_NodeIndex right_operand;
+
+	AST_NodeIndex return_type;
+	std::vector<Token> modifiers;
+
+	AST_NodeIndex statements;
+
+	DeclNodeIndex decl_node;
+
+	std::string toString() override;
+};
+
 
 // Type ////////////////////////////////////////////////////////////////////////////
 
 struct AST_Type : AST_BaseNode {
 	std::vector<Token> address;
 
+	// DeclNodeIndex decl_node;
+
 	std::string toString() override;
 };
 
 struct AST_TypeDeclaration : AST_BaseNode {
 	Token name;
+	
+	DeclNodeIndex decl_node;
 };
 
 
@@ -178,10 +197,11 @@ typedef std::variant<
 	AST_FunctionImplementation,
 	AST_FunctionCall,
 	AST_Statements,
+	AST_OperatorOverload,
 
 	// Type
-	AST_Type,
-	AST_TypeDeclaration
+	AST_TypeDeclaration,
+	AST_Type
 > AST_Node;
 
 enum class MessageSeverity : uint32_t {
@@ -251,9 +271,12 @@ public:
 
 		T* new_node = &nodes.emplace_back().emplace<T>();
 
-		// link to each other
-		AST_BaseNode* parent = getBaseNode(parent_node_index);
-		parent->children.push_back(r_child_node_index);
+		if (parent_node_index != ast_invalid_idx) {
+
+			// link to each other
+			AST_BaseNode* parent = getBaseNode(parent_node_index);
+			parent->children.push_back(r_child_node_index);
+		}
 
 		AST_BaseNode* child = getBaseNode(r_child_node_index);
 		child->parent = parent_node_index;
@@ -274,13 +297,12 @@ public:
 	bool skipSpacing();
 
 	bool skipToIdentifier();
-
+	bool skipToIdentifier(std::string identifier);
+	bool skipToTypeKeyword();
 	bool skipPastAdress();
 
 	bool skipToSymbol(std::string symbol);
-
 	bool skipToOperator();
-
 	bool skipToClosingSymbol(std::string starting_symbol, std::string closing_symbol);
 
 	bool skipToNumberLike();
@@ -319,9 +341,11 @@ public:
 
 	/* Variable */
 
+	AST_NodeIndex parseVariable(AST_NodeIndex ast_parent);
+
 	// a variable declaration is defined as the combination of a simple indetifier for the name and
 	// a another identifier acting as the type
-	AST_NodeIndex parseVariableDeclaration(AST_NodeIndex parent_node_index);
+	AST_NodeIndex parseVariableDeclaration(AST_NodeIndex ast_parent);
 
 	// assignment is defined as a complex name and the `=` sign
 	AST_NodeIndex parseVariableAssignment(AST_NodeIndex ast_parent);
@@ -337,8 +361,12 @@ public:
 
 	AST_NodeIndex parseStatements(AST_NodeIndex ast_parent);
 
+	AST_NodeIndex parseOperatorOverload(AST_NodeIndex ast_parent);
+
 
 	/* Type */
+
+	AST_NodeIndex parseTypeDeclaration(AST_NodeIndex ast_parent);
 
 	// parse the ast_type in stuff like variable declarations, function parameters
 	AST_NodeIndex parseType(AST_NodeIndex ast_parent);

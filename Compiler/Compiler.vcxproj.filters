@@ -49,7 +49,6 @@
       <Filter>Parser</Filter>
     </ClInclude>
     <ClInclude Include="Runtime.hpp" />
-    <ClInclude Include="TypeResolution.hpp" />
     <ClInclude Include="ThirdParty\ButchersToolbox\Console.hpp" />
     <ClInclude Include="ThirdParty\ButchersToolbox\DebugUtils.hpp" />
     <ClInclude Include="ThirdParty\ButchersToolbox\Filesys.hpp" />

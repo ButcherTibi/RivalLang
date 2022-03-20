@@ -1,4 +1,13 @@
 
+class TypeName {
+	
+}
+
+operator+(left i32, right string) i32 reversible
+{
+
+}
+
 main() {
-	a u64 = 1 + 2 + 3;
+	a u32 = 1 + 2 + "string_literal";
 }

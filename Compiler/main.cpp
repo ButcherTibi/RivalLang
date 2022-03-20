@@ -46,42 +46,58 @@ int main(int argument_count, char* argv[])
 
 			Resolve front_end;
 			front_end.init();
-			front_end.lexer.lexFile(0, bytes);
-			if (front_end.parseSourceFile() != ast_invalid_idx) {
-				front_end.resolve();
-			}
 
+			front_end.lexer.lexFile(0, bytes);
 			{
 				// LexerPrintSettings settings;
 				// settings.show_selection = false;
 				// front_end.lexer.print(settings);
-			}		
+			}
 
+			front_end.parseSourceFile();
 			{
 				printf("\n");
 				PrintAST_TreeSettings settings;
 				settings.show_code_selections = false;
 				front_end.printAST(settings);
+
+				// Errors
+				if (front_end.messages.size() > 0) {
+
+					printf("\nErrors: \n");
+
+					for (CompilerMessage& message : front_end.messages) {
+
+						for (MessageRow& row : message.rows) {
+
+							printf("(%d, %d | %d, %d) %s \n",
+								row.selection.start.line, row.selection.start.column,
+								row.selection.end.line, row.selection.end.column,
+								row.text.c_str());
+						}
+					}
+				}
 			}
 
+			front_end.resolve();
 			{
 				printf("\n");
 				front_end.printDeclarations();
-			}
 
-			// Errors
-			if (front_end.messages.size() > 0) {
+				// Errors
+				if (front_end.messages.size() > 0) {
 
-				printf("\nErrors: \n");
+					printf("\nErrors: \n");
 
-				for (CompilerMessage& message : front_end.messages) {
+					for (CompilerMessage& message : front_end.messages) {
 
-					for (MessageRow& row : message.rows) {
+						for (MessageRow& row : message.rows) {
 
-						printf("(%d, %d | %d, %d) %s \n",
-							row.selection.start.line, row.selection.start.column,
-							row.selection.end.line, row.selection.end.column,
-							row.text.c_str());
+							printf("(%d, %d | %d, %d) %s \n",
+								row.selection.start.line, row.selection.start.column,
+								row.selection.end.line, row.selection.end.column,
+								row.text.c_str());
+						}
 					}
 				}
 			}

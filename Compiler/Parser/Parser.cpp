@@ -45,13 +45,23 @@ AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 				// function call
 				if (skipToSymbol("(")) {
 
+					token_i = begin_adress;
+
+					ast_left_value = parseFunctionCall(ast_invalid_idx);
+
+					if (ast_left_value == ast_invalid_idx) {
+						return ast_invalid_idx;
+					}
 				}
 				// variable
-				else if (skipToOperator()) {
-
-				}
 				else {
-					throw;
+					token_i = begin_adress;
+
+					ast_left_value = parseVariable(ast_invalid_idx);
+
+					if (ast_left_value == ast_invalid_idx) {
+						return ast_invalid_idx;
+					}
 				}
 			}
 			else {
@@ -61,13 +71,23 @@ AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 				// function call
 				if (skipToSymbol("(")) {
 
+					token_i = begin_adress;
+
+					ast_left_value = parseFunctionCall(ast_invalid_idx);
+
+					if (ast_left_value == ast_invalid_idx) {
+						return ast_invalid_idx;
+					}
 				}
 				// variable
-				else if (skipToOperator()) {
-
-				}
 				else {
-					throw;
+					token_i = begin_adress;
+
+					ast_left_value = parseVariable(ast_invalid_idx);
+
+					if (ast_left_value == ast_invalid_idx) {
+						return ast_invalid_idx;
+					}
 				}
 			}
 		}
@@ -76,12 +96,16 @@ AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 			auto* num = addNode<AST_Literal>(ast_left_value);
 			num->token = getToken();
 			num->selection = num->token;
+
+			advanceToNextToken();
 		}
 		else if (skipToString()) {
 
 			auto* str = addNode<AST_Literal>(ast_left_value);
 			str->token = getToken();
 			str->selection = str->token;
+
+			advanceToNextToken();
 		}
 		else if (skipToSymbol("(")) {
 
@@ -90,8 +114,10 @@ AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 			ast_left_value = _parseExpression(0);
 			if (ast_left_value != ast_invalid_idx) {
 
-				if (skipToSymbol(")") == false) {
-
+				if (skipToSymbol(")")) {
+					advanceToNextToken();
+				}
+				else {
 					logParseError_UnexpectedToken("while looking for closing ')' in expression");
 					return ast_invalid_idx;
 				}
@@ -104,8 +130,6 @@ AST_NodeIndex Parser::_parseExpression(int32_t parent_precedence)
 		else {
 			return ast_invalid_idx;
 		}
-
-		advanceToNextToken();
 	}
 
 	while (true) {
@@ -193,27 +217,39 @@ AST_NodeIndex Parser::parseExpression(AST_NodeIndex ast_parent_idx)
 	else {
 		return ast_invalid_idx;
 	}
+}
 
-	/*uint32_t expression_root;
-	if (_parseExpression(token_i, 0, expression_root)) {
+AST_NodeIndex Parser::parseVariable(AST_NodeIndex parent_node_index)
+{
+	AST_NodeIndex var_idx;
 
-		if (expression_root != 0xFFFF'FFFF) {
+	if (skipToIdentifier()) {
 
-			linkParentAndChild(r_expression, expression_root);
+		if (isAtAdress()) {
 
-			auto expr = getBaseNode(r_expression);
-			expr->setEnd(getToken(token_i - 1));
+			{
+				auto* var = addNode<AST_Variable>(parent_node_index, var_idx);
+				var->address.push_back(getToken());
+			}
 
-			return r_expression;
+			advanceToNextToken();
+
+			return var_idx;
 		}
 		else {
-			errorUnexpectedToken("at expression start");
-			return ast_invalid_idx;
+			{
+				auto* var = addNode<AST_Variable>(parent_node_index, var_idx);
+				parseAdress(var->address);
+			}
+
+			return var_idx;
 		}
 	}
 	else {
+		logParseError_UnexpectedToken(
+			"while looking for variable name in variable usage");
 		return ast_invalid_idx;
-	}*/
+	}
 }
 
 AST_NodeIndex Parser::parseVariableDeclaration(AST_NodeIndex parent_node_index)
@@ -377,7 +413,7 @@ AST_NodeIndex Parser::parseFunctionImplementation(AST_NodeIndex ast_parent_idx)
 				if (return_type != ast_invalid_idx) {
 
 					auto* func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
-					func_impl->returns = return_type;
+					func_impl->return_type = return_type;
 				}
 				else {
 					return ast_invalid_idx;
@@ -385,7 +421,7 @@ AST_NodeIndex Parser::parseFunctionImplementation(AST_NodeIndex ast_parent_idx)
 			}
 			else {
 				auto* func_impl = getNode<AST_FunctionImplementation>(r_func_impl);
-				func_impl->returns = 0xFFFF'FFFF;
+				func_impl->return_type = 0xFFFF'FFFF;
 			}
 
 			// function body
@@ -621,6 +657,174 @@ AST_NodeIndex Parser::parseStatements(AST_NodeIndex ast_parent_idx)
 	throw;
 }
 
+AST_NodeIndex Parser::parseOperatorOverload(AST_NodeIndex ast_parent_idx)
+{
+	AST_NodeIndex r_op_overload;
+
+	if (skipToIdentifier("operator")) {
+
+		{
+			Token op_keyword = getToken();
+			advanceToNextToken();
+
+			if (getToken().isOperator()) {
+
+				auto* op_overload = addNode<AST_OperatorOverload>(ast_parent_idx, r_op_overload);
+				op_overload->op = getToken();
+				op_overload->selection.start = op_keyword.selection.start;
+				op_overload->selection.end = op_overload->op.selection.end;
+			}
+			else {
+				logParseError_UnexpectedToken("while looking for operator symbol in operator overload");
+				return ast_invalid_idx;
+			}
+		}
+		
+		advanceToNextToken();
+
+		if (skipToSymbol("(")) {
+
+			advanceToNextToken();
+
+			AST_NodeIndex left_operand_idx = parseVariableDeclaration(r_op_overload);
+			if (left_operand_idx != ast_invalid_idx) {
+
+				{
+					auto* op_overload = getNode<AST_OperatorOverload>(r_op_overload);
+					op_overload->left_operand = left_operand_idx;
+				}
+
+				if (skipToSymbol(",")) {
+					
+					advanceToNextToken();
+
+					AST_NodeIndex right_operand_idx = parseVariableDeclaration(r_op_overload);
+					if (right_operand_idx != ast_invalid_idx) {
+
+						{
+							auto* op_overload = getNode<AST_OperatorOverload>(r_op_overload);
+							op_overload->right_operand = right_operand_idx;
+						}
+					}
+					else {
+						return ast_invalid_idx;
+					}
+
+					if (skipToSymbol(")")) {
+
+						advanceToNextToken();
+
+						AST_NodeIndex return_type = parseType(r_op_overload);
+						if (return_type != ast_invalid_idx) {
+
+							{
+								auto* op_overload = getNode<AST_OperatorOverload>(r_op_overload);
+								op_overload->return_type = return_type;
+							}
+
+							if (skipToSymbol("{") == false) {
+
+								auto* op_overload = getNode<AST_OperatorOverload>(r_op_overload);
+
+								parseModifiers(token_i, op_overload->modifiers);
+							}
+							
+							AST_NodeIndex statements = parseStatements(r_op_overload);
+							if (statements != ast_invalid_idx) {
+
+								return r_op_overload;
+							}
+							else {
+								return ast_invalid_idx;
+							}
+						}
+						else {
+							return ast_invalid_idx;
+						}
+					}
+					else {
+						return ast_invalid_idx;
+					}
+				}
+				else {
+					logParseError_UnexpectedToken("while looking for function parameter");
+					return ast_invalid_idx;
+				}
+			}
+			else {
+				return ast_invalid_idx;
+			}
+		}
+		else {
+			logParseError_UnexpectedToken("while looking for operator overload params");
+			return ast_invalid_idx;
+		}
+	}
+	else {
+		logParseError_UnexpectedToken("while looking for operator overload function name");
+		return ast_invalid_idx;
+	}
+}
+
+AST_NodeIndex Parser::parseTypeDeclaration(AST_NodeIndex ast_parent)
+{
+	AST_NodeIndex r_type_decl;
+
+	if (skipToTypeKeyword()) {
+
+		advanceToNextToken();
+
+		if (skipToIdentifier()) {
+
+			{
+				auto* type_decl = addNode<AST_TypeDeclaration>(ast_parent, r_type_decl);
+				type_decl->name = getToken();
+			}
+
+			advanceToNextToken();
+
+			if (skipToSymbol("{")) {
+
+				advanceToNextToken();
+
+				if (skipToSymbol("}")) {
+
+					advanceToNextToken();
+					return r_type_decl;
+				}
+				else {
+					while (true) {
+						if (parseDeclaration(r_type_decl) != ast_invalid_idx) {
+
+							if (skipToClosingSymbol("{", "}")) {
+								__debugbreak();
+							}
+							else {
+								return ast_invalid_idx;
+							}
+						}
+						else {
+							return ast_invalid_idx;
+						}
+					}
+				}
+			}
+			else {
+				logParseError_UnexpectedToken("while looking for type declaration body");
+				return ast_invalid_idx;
+			}
+		}
+		else {
+			logParseError_UnexpectedToken("while looking for type declaration name");
+			return ast_invalid_idx;
+		}
+	}
+	else {
+		logParseError_UnexpectedToken("while looking for class/struct keyword");
+		return ast_invalid_idx;
+	}
+}
+
 AST_NodeIndex Parser::parseType(AST_NodeIndex ast_parent)
 {
 	AST_NodeIndex r_type;
@@ -677,7 +881,18 @@ AST_NodeIndex Parser::parseDeclaration(AST_NodeIndex ast_parent)
 {
 	AST_NodeIndex r_declaration;
 
-	if (skipToIdentifier()) {
+	// struct/class
+	if (skipToTypeKeyword()) {
+
+		return parseTypeDeclaration(ast_parent);
+	}
+	// operator overload
+	else if (skipToIdentifier("operator")) {
+
+		return parseOperatorOverload(ast_parent);
+	}
+	// func_name, variable_name
+	else if (skipToIdentifier()) {
 
 		uint32_t name_token = token_i;
 

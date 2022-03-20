@@ -53,6 +53,62 @@ bool Parser::skipToIdentifier()
 	return false;
 }
 
+bool Parser::skipToIdentifier(std::string identifier)
+{
+	TokenIndex i = token_i;
+
+	while (i < lexer.tokens.size()) {
+
+		Token& token = getToken(i);
+
+		if (token.isSpacing() == false) {
+
+			if (token.type == TokenTypes::IDENTIFIER &&
+				token.value == identifier)
+			{
+				token_i = i;
+				return true;
+			}
+
+			unexpected_idx = i;
+			return false;
+		}
+
+		i++;
+	}
+
+	unexpected_idx = token_i;
+	return false;
+}
+
+bool Parser::skipToTypeKeyword()
+{
+	TokenIndex i = token_i;
+
+	while (i < lexer.tokens.size()) {
+
+		Token& token = getToken(i);
+
+		if (token.isSpacing() == false) {
+
+			if (token.type == TokenTypes::IDENTIFIER &&
+				(token.value == "class" || token.value == "struct"))
+			{
+				token_i = i;
+				return true;
+			}
+
+			unexpected_idx = i;
+			return false;
+		}
+
+		i++;
+	}
+
+	unexpected_idx = token_i;
+	return false;
+}
+
 bool Parser::skipPastAdress()
 {
 	TokenIndex start = token_i;
@@ -130,6 +186,32 @@ bool Parser::skipToOperator()
 	unexpected_idx = token_i;
 	return false;
 }
+
+//bool Parser::skipToOperatorOverload()
+//{
+//	TokenIndex i = token_i;
+//
+//	while (i < lexer.tokens.size()) {
+//
+//		Token& token = getToken(i);
+//
+//		if (token.isSpacing() == false) {
+//
+//			if (token.isOperatorOverload()) {
+//				token_i = i;
+//				return true;
+//			}
+//
+//			unexpected_idx = i;
+//			return false;
+//		}
+//
+//		i++;
+//	}
+//
+//	unexpected_idx = token_i;
+//	return false;
+//}
 
 bool Parser::skipToClosingSymbol(std::string starting_symbol, std::string closing_symbol)
 {

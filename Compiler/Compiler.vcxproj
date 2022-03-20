@@ -138,7 +138,6 @@
     <ClInclude Include="ThirdParty\fmt\printf.h" />
     <ClInclude Include="ThirdParty\fmt\ranges.h" />
     <ClInclude Include="ThirdParty\fmt\xchar.h" />
-    <ClInclude Include="TypeResolution.hpp" />
     <ClInclude Include="Runtime.hpp" />
     <ClInclude Include="Lexer\Lexer.hpp" />
     <ClInclude Include="Parser\Parser.hpp" />

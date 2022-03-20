@@ -29,6 +29,7 @@ enum class TokenTypes {
 	binary, // 0b0101 0101
 
 	STRING,
+
 	SYMBOL,
 	SPACING
 };
@@ -67,10 +68,14 @@ public:
 	void assign(const Lexer*, uint32_t start_end, uint32_t end_index);
 
 	bool isSpacing();
+
 	bool isNumberLike();
+	bool isSignedInteger();
+
 	bool isSymbol();
 	bool isSymbol(std::string other);
 	bool isOperator();
+	bool isOperatorOverload();
 };
 
 struct LexerPrintSettings {

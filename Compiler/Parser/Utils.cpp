@@ -149,6 +149,22 @@ std::string AST_Statements::toString()
 	return "Statements";
 }
 
+std::string niceModifiers(std::vector<Token> modifiers)
+{
+	std::string result;
+
+	for (auto& modifier : modifiers) {
+		result += modifier.value + " ";
+	}
+
+	return result;
+}
+
+std::string AST_OperatorOverload::toString()
+{
+	return "Operator " + op.value + " overload " + niceModifiers(modifiers);
+}
+
 AST_BaseNode* Parser::getBaseNode(AST_NodeIndex ast_node_idx)
 {
 	AST_Node& node = nodes[ast_node_idx];
@@ -190,7 +206,13 @@ AST_BaseNode* Parser::getBaseNode(AST_NodeIndex ast_node_idx)
 	else if (std::holds_alternative<AST_Statements>(node)) {
 		return std::get_if<AST_Statements>(&node);
 	}
+	else if (std::holds_alternative<AST_OperatorOverload>(node)) {
+		return std::get_if<AST_OperatorOverload>(&node);
+	}
 	// Type
+	else if (std::holds_alternative<AST_TypeDeclaration>(node)) {
+		return std::get_if<AST_TypeDeclaration>(&node);
+	}
 	else if (std::holds_alternative<AST_Type>(node)) {
 		return std::get_if<AST_Type>(&node);
 	}

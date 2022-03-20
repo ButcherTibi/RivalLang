@@ -18,6 +18,7 @@ enum class DeclarationType {
 	type,
 	variable,
 	function,
+	operator_overload,
 	scope,
 };
 
@@ -41,6 +42,21 @@ struct DeclarationStack {
 class Resolve : public Parser {
 public:
 	std::vector<DeclarationNode> decls;
+
+
+	/* Basic Types */
+
+	// Integer
+	DeclNodeIndex i32_decl;
+	//DeclNodeIndex i64_decl;
+	DeclNodeIndex u32_decl;
+	//DeclNodeIndex u64_decl;
+
+	// Float
+	DeclNodeIndex f32_decl;
+	//DeclNodeIndex f64_decl;
+
+	DeclNodeIndex string_decl;
 
 public:
 	void init();
@@ -68,13 +84,19 @@ public:
 
 	DeclNodeIndex resolveAdress(DeclarationStack& stack, std::vector<Token>& adress, DeclarationType type);
 
-	// bool resolveExpression(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
+	DeclNodeIndex _resolveExpression(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
+
+	DeclNodeIndex resolveExpression(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
 
 	// bool resolveType(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
 
 	bool resolveStatements(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
 
 	bool resolveFunctionImplementation(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
+
+	// bool resolveTypeDeclaration(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
+
+	bool resolveSourceFile(DeclarationStack& parent_stack, AST_NodeIndex ast_node);
 
 
 	/* Main */

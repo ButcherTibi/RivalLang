@@ -247,7 +247,7 @@ private:
 	Token& getToken(uint32_t token_index);
 	Token& getToken();
 
-	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
+	void linkParentAndChild(AST_NodeIndex parent_node_index, AST_NodeIndex child_node_index);
 
 
 	/* Token Updade */
@@ -255,7 +255,7 @@ private:
 	void advanceToNextToken();
 
 
-	/* Skip Functions */
+	/* Skip Functions ******************************************************************************/
 	/* Each skipTo function will leave the current token index at the position of the found token.
 	* If the token is not found and something else is found then the unexpected token index will be updated
 	* for use in error messages.
@@ -339,7 +339,7 @@ private:
 	/** @brief Parse using a variable usually inside an expression. */
 	AST_NodeIndex parseVariable(AST_NodeIndex ast_parent);
 
-	/** A variable declaration is defined as the combination of a simple indetifier for the name and
+	/** @brief A variable declaration is defined as the combination of a simple indetifier for the name and
 	* another identifier acting as the type */
 	AST_NodeIndex parseVariableDeclaration(AST_NodeIndex ast_parent);
 

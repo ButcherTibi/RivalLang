@@ -38,7 +38,10 @@ std::string toStringTokenTypes(TokenTypes token_type);
 
 
 struct SourceCodePosition {
+	/** @brief Line index in source file. */
 	uint32_t line;
+
+	/** @brief Column index in source file. */
 	uint32_t column;
 };
 
@@ -135,7 +138,7 @@ private:
 	// C# verbatim strings
 	void lexVerbatimString();
 
-	// everything, must put this last
+	// everything else, must put this last
 	void lexSymbol();
 
 public:

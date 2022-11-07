@@ -226,7 +226,7 @@ CodeSelection Parser::getNodeSelection(AST_NodeIndex ast_node_idx)
 	return getBaseNode(ast_node_idx)->selection;
 }
 
-void Parser::linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index)
+void Parser::linkParentAndChild(AST_NodeIndex parent_node_index, AST_NodeIndex child_node_index)
 {
 	AST_BaseNode* parent = getBaseNode(parent_node_index);
 	parent->children.push_back(child_node_index);

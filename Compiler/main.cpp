@@ -31,7 +31,7 @@ int main(int argument_count, char* argv[])
 			std::string current_folder;
 			Console::getCurrentFolder(current_folder);
 			
-			std::string file_name = "tests.txt";
+			std::string file_name = "main.txt";
 			current_folder.append("\\");
 			current_folder.append(file_name);
 
@@ -79,6 +79,7 @@ int main(int argument_count, char* argv[])
 				}
 			}
 
+#if false
 			front_end.resolve();
 			{
 				printf("\n");
@@ -101,6 +102,7 @@ int main(int argument_count, char* argv[])
 					}
 				}
 			}
+#endif
 		}
 	}
 

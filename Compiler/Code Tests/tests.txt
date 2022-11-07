@@ -1,4 +1,4 @@
 
-main() {
-	foo u32;
+main () {
+    bar.foo = 0xC0FEBEEF - 10 000U * ("text" + 1.50) / bar('other');
 }

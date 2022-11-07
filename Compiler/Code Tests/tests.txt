@@ -1,18 +1,4 @@
 
-// test function call
-function_call( 1 + 1, "foo" ) ;
-namespace.class.method(1 + 1, "bar");
-
-// test composite variable
-namespace.class.variable = 1 + 1 * "assignment";
-
-// variable declaration
-var_name T<T1, T2> = 1 + 1;
-
-// test precedence
-var_name Type = 1 * 2 + 3 + ("foo" + "bar");
-var_name Type = 1 + 2 + 3 * 4 * 5 + 6 * 9;
-
-// test literal
-var_name f32 = 10 0 + 20 0u + 30 0I + 40 0U + 50 0f + 60 0F +
-	0b1101 0011 + 0xFFFF FFFF;
+main() {
+	foo u32;
+}

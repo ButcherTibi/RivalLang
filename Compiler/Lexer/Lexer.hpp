@@ -43,7 +43,8 @@ struct SourceCodePosition {
 };
 
 struct CodeSelection {
-	uint32_t file_index;  // in which file does this selection reside
+	/* @brief In which file does this selection reside */
+	uint32_t file_index; 
 
 	SourceCodePosition start;
 	SourceCodePosition end;
@@ -55,16 +56,23 @@ public:
 	void operator=(const std::vector<Token>&);
 };
 
+
 struct Token {
 	TokenTypes type;
 
-	CodeSelection selection;
+	/** @brief Where is the token located and what is it's length */
+	CodeSelection selection;  
 
 	std::string value;
 
 public:
+	/** @brief Mark the start of the token */
 	void start(const Lexer*);
+
+	/** @brief Mark the end of the token */
 	void end(const Lexer*);
+
+	/** @brief Copy text into token */
 	void assign(const Lexer*, uint32_t start_end, uint32_t end_index);
 
 	bool isSpacing();
@@ -78,17 +86,19 @@ public:
 	bool isOperatorOverload();
 };
 
+
 struct LexerPrintSettings {
 	bool ignore_spacing = true;
 	bool show_selection = false;
 };
+
 
 class Lexer {
 public:
 	// bytes of the file
 	std::vector<uint8_t> bytes;
 	
-	// curent index
+	// curent index of character in file
 	uint32_t i;
 
 	// current line and column
@@ -97,8 +107,7 @@ public:
 
 	std::vector<Token> tokens;
 
-public:
-
+private:
 	void advance();
 
 	bool skipToSymbolNoAdvance(uint32_t& index, char symbol);
@@ -129,6 +138,7 @@ public:
 	// everything, must put this last
 	void lexSymbol();
 
+public:
 	void lexFile(uint32_t file_index, std::vector<uint8_t>& file_bytes);
 
 

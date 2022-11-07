@@ -228,6 +228,8 @@ struct PrintAST_TreeSettings {
 std::string getAdressName(std::vector<Token>& tokens);
 
 
+/** The architecture of the parser changed a lot to arrive at this clean one with implicit token consumption.
+*/
 class Parser {
 public:
 	Lexer lexer;
@@ -238,14 +240,160 @@ public:
 
 	std::vector<CompilerMessage> messages;
 
-public:
-	void init();
-
+private:
 
 	/* Utility functions */
 
 	Token& getToken(uint32_t token_index);
 	Token& getToken();
+
+	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
+
+
+	/* Token Updade */
+
+	void advanceToNextToken();
+
+
+	/* Skip Functions */
+	/* Each skipTo function will leave the current token index at the position of the found token.
+	* If the token is not found and something else is found then the unexpected token index will be updated
+	* for use in error messages.
+	* They ignore any spacing (space, tab or newline) completely.
+	*/
+
+	/** @brief Skip to any type of token that is not spacing. */
+	bool skipSpacing();
+
+	/** @brief Skip to the start of any identifier token. */
+	bool skipToIdentifier();
+
+	/** @brief Skip to the start of of an indetifier with a specific value. */
+	bool skipToIdentifier(std::string identifier);
+
+	/** @brief Skip to the start of a keyword used to define a type. 
+	* Example: class or struct */
+	bool skipToTypeKeyword();
+
+	/** @brief Skip past an adress.
+	* Example: namespace_name.class_name.variable_name 
+	*                                                 | current token index */
+	bool skipPastAdress();
+
+	/** @brief Skip to the start of a symbol. */
+	bool skipToSymbol(std::string symbol);
+
+	bool skipToOperator();
+
+	/** @brief Skip to the last closing symbol accounting for opening and closing of symbols.
+	* Example: { {} {} {{}{}} } 
+	*                          | current token index */
+	bool skipToClosingSymbol(std::string starting_symbol, std::string closing_symbol);
+
+
+	/** @brief Skip to the start of a token that evaluates to a number. 
+	* Example: 0xFFFF FFFF
+	*                     | current token index */
+	bool skipToNumberLike();
+
+	/** @brief Skip to the start of a string.
+	* Example: "this is some text"
+	*                     | current token index */
+	bool skipToString();
+
+
+	/* Check functions */
+
+	// checks if the identifier is not followed by '.' or other symbols
+	bool isAtAdress();
+
+
+	/* Parse Functions ******************************************************************************/
+	/* Parse functions advance the token index just past the expected syntax, they don't make any asumptions
+	* about what follows after at all.
+	*/
+
+
+	/* Common */
+
+	// parse dot separated list of identifiers
+	// ex: namespace_name.class_name.property_name
+	void parseAdress(std::vector<Token>& r_adress);
+
+	/** @brief Parse space separated list of modifiers.
+	* ex: inline const nothrow
+	* A modifier is a keyword that is applied to a declaration that alters it's behaviour. */
+	void parseModifiers(uint32_t& token_index, std::vector<Token>& r_modifiers);
+
+
+	/* Expression */
+
+	AST_NodeIndex _parseExpression(int32_t parent_precedence);
+
+	/** @brief Uses the precedence climbing algorithm to determine operator precedence. */
+	AST_NodeIndex parseExpression(AST_NodeIndex ast_parent);
+
+
+	/* Variable */
+
+	/** @brief Parse using a variable usually inside an expression. */
+	AST_NodeIndex parseVariable(AST_NodeIndex ast_parent);
+
+	/** A variable declaration is defined as the combination of a simple indetifier for the name and
+	* another identifier acting as the type */
+	AST_NodeIndex parseVariableDeclaration(AST_NodeIndex ast_parent);
+
+	/** @brief Assignment is defined as a complex name and the `=` sign */
+	AST_NodeIndex parseVariableAssignment(AST_NodeIndex ast_parent);
+
+
+	/* Function */
+
+	AST_NodeIndex parseFunctionImplementation(AST_NodeIndex ast_parent);
+
+	AST_NodeIndex parseFunctionCall(AST_NodeIndex ast_parent);
+
+	AST_NodeIndex parseStatement(AST_NodeIndex ast_parent);
+
+	AST_NodeIndex parseStatements(AST_NodeIndex ast_parent);
+
+	AST_NodeIndex parseOperatorOverload(AST_NodeIndex ast_parent);
+
+
+	/* Type */
+
+	AST_NodeIndex parseTypeDeclaration(AST_NodeIndex ast_parent);
+
+	/** Parses the ast_type in stuff like variable declarations, function parameters.
+	* Do not confuse with the parseTypeDeclartion for parsing class/struct syntax. */
+	AST_NodeIndex parseType(AST_NodeIndex ast_parent);
+
+	// bool parseTypeDeclaration();
+
+
+	/* Source File */
+
+	AST_NodeIndex parseDeclaration(AST_NodeIndex ast_parent);
+
+
+	/* Parse Error */
+
+	void logParseError(std::string error_mesage, TokenIndex unexpected_token_idx);
+
+	void logParseError(std::string error_mesage);
+
+	// "unexpected token '{token.value}' {error_mesage}"
+	void logParseError_UnexpectedToken(std::string error_mesage);
+
+
+
+	/* Debug */
+	void _printTree(uint32_t node_idx, uint32_t depth, PrintAST_TreeSettings&);
+
+
+protected:
+	void init();
+
 
 	template<typename T>
 	T* getNode(AST_NodeIndex ast_node_idx)
@@ -253,8 +401,9 @@ public:
 		return &std::get<T>(nodes[ast_node_idx]);
 	}
 
+
 	AST_BaseNode* getBaseNode(AST_NodeIndex ast_node_idx);
-	CodeSelection getNodeSelection(AST_NodeIndex ast_node_idx);
+
 
 	template<typename T>
 	T* addNode(uint32_t& r_new_node_index)
@@ -263,6 +412,7 @@ public:
 
 		return &nodes.emplace_back().emplace<T>();
 	}
+
 
 	template<typename T>
 	T* addNode(uint32_t parent_node_index, uint32_t& r_child_node_index)
@@ -284,116 +434,13 @@ public:
 		return new_node;
 	}
 
-	void linkParentAndChild(uint32_t parent_node_index, uint32_t child_node_index);
+	
+	CodeSelection getNodeSelection(AST_NodeIndex ast_node_idx);
 
 
-	/* Token Updade */
-
-	void advanceToNextToken();
-
-
-	/* Skip Functions */
-
-	bool skipSpacing();
-
-	bool skipToIdentifier();
-	bool skipToIdentifier(std::string identifier);
-	bool skipToTypeKeyword();
-	bool skipPastAdress();
-
-	bool skipToSymbol(std::string symbol);
-	bool skipToOperator();
-	bool skipToClosingSymbol(std::string starting_symbol, std::string closing_symbol);
-
-	bool skipToNumberLike();
-
-	bool skipToString();
-
-
-	/* Check functions */
-
-	// checks if the identifier is not followed by '.' or other symbols
-	bool isAtAdress();
-
-
-	/* Parse Functions ******************************************************************************/
-	// Parse functions advance token index just past syntax, they don't make asumptions
-	// about what follows after
-
-
-	/* Common */
-
-	// parse dot separated list of identifiers
-	// ex: namespace_name.class_name.property_name
-	void parseAdress(std::vector<Token>& r_adress);
-
-	// parse space separated list of modifiers
-	// ex: modifier_0 modifier_1 modifier_2
-	void parseModifiers(uint32_t& token_index, std::vector<Token>& r_modifiers);
-
-
-	/* Expression */
-
-	AST_NodeIndex _parseExpression(int32_t parent_precedence);
-
-	AST_NodeIndex parseExpression(AST_NodeIndex ast_parent);
-
-
-	/* Variable */
-
-	AST_NodeIndex parseVariable(AST_NodeIndex ast_parent);
-
-	// a variable declaration is defined as the combination of a simple indetifier for the name and
-	// a another identifier acting as the type
-	AST_NodeIndex parseVariableDeclaration(AST_NodeIndex ast_parent);
-
-	// assignment is defined as a complex name and the `=` sign
-	AST_NodeIndex parseVariableAssignment(AST_NodeIndex ast_parent);
-
-
-	/* Function */
-
-	AST_NodeIndex parseFunctionImplementation(AST_NodeIndex ast_parent);
-
-	AST_NodeIndex parseFunctionCall(AST_NodeIndex ast_parent);
-
-	AST_NodeIndex parseStatement(AST_NodeIndex ast_parent);
-
-	AST_NodeIndex parseStatements(AST_NodeIndex ast_parent);
-
-	AST_NodeIndex parseOperatorOverload(AST_NodeIndex ast_parent);
-
-
-	/* Type */
-
-	AST_NodeIndex parseTypeDeclaration(AST_NodeIndex ast_parent);
-
-	// parse the ast_type in stuff like variable declarations, function parameters
-	AST_NodeIndex parseType(AST_NodeIndex ast_parent);
-
-	// bool parseTypeDeclaration();
-
-
-	/* Source File */
-
-	AST_NodeIndex parseDeclaration(AST_NodeIndex ast_parent);
-
+public:
 	AST_NodeIndex parseSourceFile();
 
-
-	/* Parse Error */
-
-	void logParseError(std::string error_mesage, TokenIndex unexpected_token_idx);
-
-	void logParseError(std::string error_mesage);
-
-	// "unexpected token '{token.value}' {error_mesage}"
-	void logParseError_UnexpectedToken(std::string error_mesage);
-
-
-
-	/* Debug */
-	void _printTree(uint32_t node_idx, uint32_t depth, PrintAST_TreeSettings&);
 	void printAST(PrintAST_TreeSettings settings = PrintAST_TreeSettings());
 	void printNodes(uint32_t start_index = 0, uint32_t end_index = 0xFFFF'FFFF);
 };

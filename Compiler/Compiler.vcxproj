@@ -80,7 +80,7 @@
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
       <ObjectFileName>$(IntDir)/%(RelativeDir)/</ObjectFileName>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.hpp</PrecompiledHeaderFile>
@@ -144,7 +144,6 @@
     <ClInclude Include="pch.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Code Tests\file_0.txt" />
     <Text Include="Code Tests\tests.txt" />
     <Text Include="Code Tests\main.txt" />
   </ItemGroup>

@@ -39,6 +39,10 @@ struct DeclarationStack {
 };
 
 
+/* This is not done.
+* The Resolve stage is used to locate declaration and implementation of stuff.
+* In a more complex way, a programing language that support operator overloading does not have type errors
+* in a strict sense it simply has not found a coresponding operator overload that matches that usage. */
 class Resolve : public Parser {
 public:
 	std::vector<DeclarationNode> decls;

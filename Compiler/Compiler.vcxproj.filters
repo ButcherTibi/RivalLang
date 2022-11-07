@@ -72,7 +72,6 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Code Tests\main.txt" />
-    <Text Include="Code Tests\file_0.txt" />
     <Text Include="Code Tests\tests.txt" />
   </ItemGroup>
 </Project>
